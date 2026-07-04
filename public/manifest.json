@@ -1,0 +1,18 @@
+{
+  "name": "이야기 그림전환",
+  "short_name": "이야기그림",
+  "description": "아이들의 이야기와 사진을 태블릿에만 저장하는 앱",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff8f0",
+  "theme_color": "#ff6b9d",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
