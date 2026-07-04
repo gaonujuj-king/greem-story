@@ -39,20 +39,17 @@ function collectTranscripts(event) {
 
     if (result.isFinal) {
       final += transcript
-    } else {
-      interim += transcript
     }
   }
 
-  if (!final && !interim && event.results.length > 0) {
-    for (let i = 0; i < event.results.length; i++) {
-      const result = event.results[i]
+  // interim은 마지막 비-final 결과만 사용 (태블릿에서 중간 결과 중복 방지)
+  for (let i = event.results.length - 1; i >= 0; i--) {
+    const result = event.results[i]
+    if (!result.isFinal) {
       const transcript = pickBestAlternative(result)
-      if (!transcript) continue
-      if (result.isFinal) {
-        final += transcript
-      } else {
-        interim += transcript
+      if (transcript) {
+        interim = transcript
+        break
       }
     }
   }
@@ -203,18 +200,17 @@ export function useSpeechRecognition({ onResult, onError }) {
       recognition.onresult = (event) => {
         const { final, interim } = collectTranscripts(event)
 
-        const displayInterim = interim || (final ? '' : lastGoodInterimRef.current)
         if (interim) lastGoodInterimRef.current = interim
         if (final) lastGoodInterimRef.current = ''
 
-        if (!final && !displayInterim) return
+        if (!final && !interim) return
 
         hasReceivedResultRef.current = true
         setSpeechHint(null)
         clearNoTextTimer()
         bumpMicLevel(setMicLevel, 95)
         setSpeechPhase('text-received')
-        onResultRef.current?.({ final, interim: displayInterim })
+        onResultRef.current?.({ final, interim })
       }
 
       recognition.onerror = (event) => {

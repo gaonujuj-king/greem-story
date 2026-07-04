@@ -14,6 +14,11 @@ import {
   clearDraft,
   requestPersistentStorage,
 } from './utils/storage'
+import {
+  advanceSpeechSession,
+  composeStoryFromSpeechSession,
+  getInterimTail,
+} from './utils/speechTextMerge'
 import './App.css'
 
 function App() {
@@ -86,30 +91,53 @@ function App() {
   }, [storyText, isLoaded, clearCurrentImage])
 
   const interimTextRef = useRef('')
+  const storyTextRef = useRef(storyText)
+  const speechSessionRef = useRef({ baseText: '', cumulative: '' })
+
+  useEffect(() => {
+    storyTextRef.current = storyText
+  }, [storyText])
 
   useEffect(() => {
     interimTextRef.current = interimText
   }, [interimText])
 
-  const flushInterimToStory = useCallback(() => {
-    const interim = interimTextRef.current.trim()
-    if (!interim) return
+  const applySpeechToStory = useCallback(
+    (incomingChunk) => {
+      const { session, changed } = advanceSpeechSession(speechSessionRef.current, incomingChunk)
+      if (!changed) return false
 
-    setStoryText((prev) => {
-      const spacer = prev && !prev.endsWith(' ') ? ' ' : ''
-      const newText = prev + spacer + interim
+      speechSessionRef.current = session
+      const newText = composeStoryFromSpeechSession(session)
       if (newText.trim() !== lastGeneratedTextRef.current) {
         clearCurrentImage()
         lastGeneratedTextRef.current = ''
       }
-      return newText
-    })
+      setStoryText(newText)
+      return true
+    },
+    [clearCurrentImage]
+  )
+
+  const flushInterimToStory = useCallback(() => {
+    const interim = interimTextRef.current.trim()
+    if (!interim) return
+
+    const tail = getInterimTail(speechSessionRef.current.cumulative, interim)
+    const toCommit = tail || interim
+    applySpeechToStory(toCommit)
     setInterimText('')
-  }, [clearCurrentImage])
+  }, [applySpeechToStory])
 
   const handleListeningChange = useCallback(
     (listening) => {
-      if (!listening) {
+      if (listening) {
+        speechSessionRef.current = {
+          baseText: storyTextRef.current,
+          cumulative: '',
+        }
+        setInterimText('')
+      } else {
         flushInterimToStory()
       }
       setIsListening(listening)
@@ -119,18 +147,11 @@ function App() {
 
   const handleTextUpdate = useCallback(({ final, interim }) => {
     if (final?.trim()) {
-      setStoryText((prev) => {
-        const spacer = prev && !prev.endsWith(' ') && !final.startsWith(' ') ? ' ' : ''
-        const newText = prev + spacer + final.trim()
-        if (newText.trim() !== lastGeneratedTextRef.current) {
-          clearCurrentImage()
-          lastGeneratedTextRef.current = ''
-        }
-        return newText
-      })
+      applySpeechToStory(final.trim())
     }
-    setInterimText(interim ?? '')
-  }, [clearCurrentImage])
+    const tail = getInterimTail(speechSessionRef.current.cumulative, interim ?? '')
+    setInterimText(tail)
+  }, [applySpeechToStory])
 
   const imageErrorRetriedRef = useRef(false)
 

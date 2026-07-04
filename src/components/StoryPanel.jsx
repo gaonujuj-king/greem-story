@@ -11,6 +11,7 @@ const StoryPanel = forwardRef(function StoryPanel(
   ref
 ) {
   const textareaRef = useRef(null)
+  const isComposingRef = useRef(false)
 
   const displayValue = isListening ? appendInterim(storyText, interimText) : storyText
 
@@ -33,8 +34,20 @@ const StoryPanel = forwardRef(function StoryPanel(
 
   const handleChange = useCallback(
     (e) => {
-      if (isListening) return
+      if (isListening || isComposingRef.current) return
       onTextChange(e.target.value)
+    },
+    [isListening, onTextChange]
+  )
+
+  const handleCompositionStart = useCallback(() => {
+    isComposingRef.current = true
+  }, [])
+
+  const handleCompositionEnd = useCallback(
+    (e) => {
+      isComposingRef.current = false
+      if (!isListening) onTextChange(e.target.value)
     },
     [isListening, onTextChange]
   )
@@ -51,7 +64,8 @@ const StoryPanel = forwardRef(function StoryPanel(
           className="story-textarea"
           value={displayValue}
           onChange={handleChange}
-          onInput={handleChange}
+          onCompositionStart={handleCompositionStart}
+          onCompositionEnd={handleCompositionEnd}
           readOnly={isListening}
           placeholder={
             isListening
