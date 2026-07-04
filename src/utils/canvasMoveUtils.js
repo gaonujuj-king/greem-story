@@ -1,4 +1,5 @@
 const ALPHA_THRESHOLD = 12
+const MOVE_START_THRESHOLD = 8
 
 function imageDataToCanvas(imageData) {
   const canvas = document.createElement('canvas')
@@ -8,12 +9,7 @@ function imageDataToCanvas(imageData) {
   return canvas
 }
 
-/** 터치 지점과 연결된 그림 영역을 잘라 캔버스에서 제거 */
-export function extractConnectedRegion(ctx, px, py, width, height) {
-  if (px < 0 || py < 0 || px >= width || py >= height) return null
-
-  const imageData = ctx.getImageData(0, 0, width, height)
-  const data = imageData.data
+function floodConnectedRegion(data, width, height, px, py) {
   const startIdx = py * width + px
   if (data[startIdx * 4 + 3] < ALPHA_THRESHOLD) return null
 
@@ -65,14 +61,14 @@ export function extractConnectedRegion(ctx, px, py, width, height) {
         crop.data[di + 1] = data[si + 1]
         crop.data[di + 2] = data[si + 2]
         crop.data[di + 3] = data[si + 3]
-        data[si + 3] = 0
       }
     }
   }
 
-  ctx.putImageData(imageData, 0, 0)
-
   return {
+    visited,
+    width,
+    height,
     crop,
     cropCanvas: imageDataToCanvas(crop),
     minX,
@@ -82,6 +78,34 @@ export function extractConnectedRegion(ctx, px, py, width, height) {
     grabPx: px - minX,
     grabPy: py - minY,
   }
+}
+
+/** 터치 지점과 연결된 그림 영역 분석 (캔버스는 변경하지 않음) */
+export function analyzeConnectedRegion(ctx, px, py, width, height) {
+  if (px < 0 || py < 0 || px >= width || py >= height) return null
+  const imageData = ctx.getImageData(0, 0, width, height)
+  return floodConnectedRegion(imageData.data, width, height, px, py)
+}
+
+function eraseVisitedPixels(ctx, visited, width, height) {
+  const imageData = ctx.getImageData(0, 0, width, height)
+  const data = imageData.data
+  for (let i = 0; i < visited.length; i++) {
+    if (visited[i]) data[i * 4 + 3] = 0
+  }
+  ctx.putImageData(imageData, 0, 0)
+}
+
+export function renderMovePreview(ctx, fullSnapshot, analysis, x, y, dpr) {
+  ctx.putImageData(fullSnapshot, 0, 0)
+  eraseVisitedPixels(ctx, analysis.visited, analysis.width, analysis.height)
+  drawFloatingCrop(ctx, analysis.cropCanvas, x, y, dpr, 0.88)
+}
+
+export function commitMovedRegion(ctx, fullSnapshot, analysis, x, y, dpr) {
+  ctx.putImageData(fullSnapshot, 0, 0)
+  eraseVisitedPixels(ctx, analysis.visited, analysis.width, analysis.height)
+  drawFloatingCrop(ctx, analysis.cropCanvas, x, y, dpr, 1)
 }
 
 export function drawFloatingCrop(ctx, cropCanvas, x, y, dpr, alpha = 0.88) {
@@ -94,6 +118,12 @@ export function drawFloatingCrop(ctx, cropCanvas, x, y, dpr, alpha = 0.88) {
 export function commitFloatingCrop(ctx, cropCanvas, x, y, dpr) {
   ctx.drawImage(cropCanvas, x * dpr, y * dpr, cropCanvas.width, cropCanvas.height)
 }
+
+export function moveDragDistance(start, end) {
+  return Math.hypot(end.x - start.x, end.y - start.y)
+}
+
+export { MOVE_START_THRESHOLD }
 
 export function hitTestSticker(stickers, x, y) {
   for (let i = stickers.length - 1; i >= 0; i--) {

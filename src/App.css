@@ -1474,6 +1474,9 @@
   border-radius: 16px;
   box-shadow: inset 0 0 0 3px #ffd6e7, 0 4px 12px rgba(255, 107, 157, 0.15);
   overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .kid-draw-base-canvas,
@@ -1517,10 +1520,10 @@
   width: 100%;
   height: 100%;
   pointer-events: none;
-  z-index: 1;
+  z-index: 3;
 }
 
-.photo-sticker-layer.active {
+.photo-sticker-layer.active .photo-sticker {
   pointer-events: auto;
 }
 
@@ -1533,6 +1536,7 @@
   background: transparent;
   overflow: visible;
   touch-action: none;
+  pointer-events: none;
   cursor: grab;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   transform-origin: center center;

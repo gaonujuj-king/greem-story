@@ -38,11 +38,15 @@ import {
 
 import {
 
-  extractConnectedRegion,
+  analyzeConnectedRegion,
 
-  drawFloatingCrop,
+  renderMovePreview,
 
-  commitFloatingCrop,
+  commitMovedRegion,
+
+  moveDragDistance,
+
+  MOVE_START_THRESHOLD,
 
 } from '../utils/canvasMoveUtils'
 
@@ -677,11 +681,9 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       if (tab !== 'move') return
 
-      if (e.pointerType === 'touch' && e.isPrimary === false) return
+      if (moveDragRef.current) return
 
       e.preventDefault()
-
-      canvasRef.current?.setPointerCapture(e.pointerId)
 
       const pt = getPoint(e)
 
@@ -697,9 +699,9 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       const py = Math.floor(pt.y * dpr)
 
-      const region = extractConnectedRegion(ctx, px, py, canvas.width, canvas.height)
+      const analysis = analyzeConnectedRegion(ctx, px, py, canvas.width, canvas.height)
 
-      if (!region) {
+      if (!analysis) {
 
         showToast('👆 옮길 그림을 눌러주세요!')
 
@@ -707,21 +709,27 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       }
 
+      canvasRef.current?.setPointerCapture(e.pointerId)
+
       moveDragRef.current = {
 
         pointerId: e.pointerId,
 
-        cropCanvas: region.cropCanvas,
+        dragging: false,
 
-        grabOffsetX: region.grabPx / dpr,
+        startPt: pt,
 
-        grabOffsetY: region.grabPy / dpr,
+        analysis,
 
-        x: pt.x - region.grabPx / dpr,
+        grabOffsetX: analysis.grabPx / dpr,
 
-        y: pt.y - region.grabPy / dpr,
+        grabOffsetY: analysis.grabPy / dpr,
 
-        baseSnapshot: ctx.getImageData(0, 0, canvas.width, canvas.height),
+        x: pt.x - analysis.grabPx / dpr,
+
+        y: pt.y - analysis.grabPy / dpr,
+
+        fullSnapshot: ctx.getImageData(0, 0, canvas.width, canvas.height),
 
       }
 
@@ -737,7 +745,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       const drag = moveDragRef.current
 
-      if (!drag || tab !== 'move') return
+      if (!drag || tab !== 'move' || e.pointerId !== drag.pointerId) return
 
       e.preventDefault()
 
@@ -747,17 +755,47 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       if (!ctx) return
 
+      if (!drag.dragging) {
+
+        if (moveDragDistance(drag.startPt, pt) < MOVE_START_THRESHOLD) return
+
+        drag.dragging = true
+
+      }
+
       drag.x = pt.x - drag.grabOffsetX
 
       drag.y = pt.y - drag.grabOffsetY
 
-      ctx.putImageData(drag.baseSnapshot, 0, 0)
-
-      drawFloatingCrop(ctx, drag.cropCanvas, drag.x, drag.y, dprRef.current)
+      renderMovePreview(ctx, drag.fullSnapshot, drag.analysis, drag.x, drag.y, dprRef.current)
 
     },
 
     [tab, getPoint, getCtx]
+
+  )
+
+  const cancelMoveDrag = useCallback(
+
+    (restoreCanvas = true) => {
+
+      const drag = moveDragRef.current
+
+      if (!drag) return
+
+      if (restoreCanvas && drag.dragging) {
+
+        const ctx = getCtx()
+
+        if (ctx) ctx.putImageData(drag.fullSnapshot, 0, 0)
+
+      }
+
+      moveDragRef.current = null
+
+    },
+
+    [getCtx]
 
   )
 
@@ -769,13 +807,19 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       if (!drag) return
 
+      if (!drag.dragging) {
+
+        moveDragRef.current = null
+
+        return
+
+      }
+
       const ctx = getCtx()
 
       if (ctx) {
 
-        ctx.putImageData(drag.baseSnapshot, 0, 0)
-
-        commitFloatingCrop(ctx, drag.cropCanvas, drag.x, drag.y, dprRef.current)
+        commitMovedRegion(ctx, drag.fullSnapshot, drag.analysis, drag.x, drag.y, dprRef.current)
 
         pushHistory()
 
@@ -797,9 +841,21 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     (e) => {
 
-      if (!moveDragRef.current) return
+      const drag = moveDragRef.current
+
+      if (!drag || e.pointerId !== drag.pointerId) return
 
       e.preventDefault()
+
+      try {
+
+        canvasRef.current?.releasePointerCapture(e.pointerId)
+
+      } catch {
+
+        // ignore
+
+      }
 
       finishMoveDrag()
 
@@ -809,9 +865,28 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
   )
 
+  const handleMovePointerCancel = useCallback(
+
+    (e) => {
+
+      const drag = moveDragRef.current
+
+      if (!drag || e.pointerId !== drag.pointerId) return
+
+      e.preventDefault()
+
+      cancelMoveDrag(true)
+
+    },
+
+    [cancelMoveDrag]
+
+  )
+
   useEffect(() => {
     if (tab !== 'move' && moveDragRef.current) {
-      finishMoveDrag(false)
+      if (moveDragRef.current.dragging) finishMoveDrag(false)
+      else moveDragRef.current = null
     }
   }, [tab, finishMoveDrag])
 
@@ -1227,9 +1302,13 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
         id: stickerId,
 
+        pointerId: e.pointerId,
+
         offsetX: pt.x - sticker.x,
 
         offsetY: pt.y - sticker.y,
+
+        moved: false,
 
       }
 
@@ -1249,11 +1328,13 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       const drag = dragStickerRef.current
 
-      if (!drag || (tab !== 'photo' && tab !== 'move')) return
+      if (!drag || (tab !== 'photo' && tab !== 'move') || e.pointerId !== drag.pointerId) return
 
       e.preventDefault()
 
       const pt = getPoint(e)
+
+      drag.moved = true
 
       setPhotoStickers((prev) =>
 
@@ -1296,15 +1377,21 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       const drag = dragStickerRef.current
 
-      if (!drag) return
+      if (!drag || e.pointerId !== drag.pointerId) return
 
       e.preventDefault()
 
+      const moved = drag.moved
+
       dragStickerRef.current = null
 
-      markDirty()
+      if (moved) {
 
-      showToast('👆 사진을 옮겼어요!')
+        markDirty()
+
+        showToast('👆 사진을 옮겼어요!')
+
+      }
 
     },
 
@@ -1568,8 +1655,6 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
             onPointerUp={handleStickerPointerUp}
 
-            onPointerLeave={handleStickerPointerUp}
-
             onPointerCancel={handleStickerPointerUp}
 
           >
@@ -1600,6 +1685,12 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
                 onPointerDown={(e) => handleStickerPointerDown(e, sticker.id)}
 
+                onPointerMove={handleStickerPointerMove}
+
+                onPointerUp={handleStickerPointerUp}
+
+                onPointerCancel={handleStickerPointerUp}
+
                 aria-label="그림판 사진"
 
               >
@@ -1624,9 +1715,15 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
             onPointerUp={(e) => (tab === 'move' ? handleMovePointerUp(e) : handlePointerUp(e))}
 
-            onPointerLeave={(e) => (tab === 'move' ? handleMovePointerUp(e) : handlePointerUp(e))}
+            onPointerCancel={(e) => (tab === 'move' ? handleMovePointerCancel(e) : handlePointerUp(e))}
 
-            onPointerCancel={(e) => (tab === 'move' ? handleMovePointerUp(e) : handlePointerUp(e))}
+            onLostPointerCapture={(e) => {
+              if (tab !== 'move') return
+              const drag = moveDragRef.current
+              if (!drag || e.pointerId !== drag.pointerId) return
+              if (drag.dragging) finishMoveDrag(false)
+              else moveDragRef.current = null
+            }}
 
             aria-label="그림 그리기 도화지"
 
