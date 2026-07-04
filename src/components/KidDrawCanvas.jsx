@@ -38,6 +38,16 @@ import {
 
 import {
 
+  extractConnectedRegion,
+
+  drawFloatingCrop,
+
+  commitFloatingCrop,
+
+} from '../utils/canvasMoveUtils'
+
+import {
+
   PHOTO_SIZE_OPTIONS,
 
   computeStickerPlacement,
@@ -188,10 +198,12 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
   const embedOffsetRef = useRef(0)
 
   const dragStickerRef = useRef(null)
+  const moveDragRef = useRef(null)
+  const canvasSizeRef = useRef({ w: 0, h: 0 })
 
 
 
-  const activeTool = tab === 'draw' ? drawTool : tab === 'shape' ? shapeTool : tab === 'photo' ? 'photo' : 'stamp'
+  const activeTool = tab === 'draw' ? drawTool : tab === 'shape' ? shapeTool : tab === 'photo' ? 'photo' : tab === 'move' ? 'move' : 'stamp'
 
 
 
@@ -200,6 +212,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
     if (tab === 'stamp') return TOOL_HINTS.stamp
 
     if (tab === 'photo') return TOOL_HINTS.photo
+
+    if (tab === 'move') return TOOL_HINTS.move
 
     return TOOL_HINTS[activeTool] ?? TOOL_HINTS.pen
 
@@ -222,20 +236,6 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
   const getBaseCtx = useCallback(
     () => baseCanvasRef.current?.getContext('2d', { willReadFrequently: true }),
     []
-  )
-
-  const setupCanvasPair = useCallback(
-    (dpr) => {
-      for (const canvas of [baseCanvasRef.current, canvasRef.current]) {
-        if (!canvas) continue
-        canvas.width = canvasWidth * dpr
-        canvas.height = canvasHeight * dpr
-        canvas.style.width = `${canvasWidth}px`
-        canvas.style.height = `${canvasHeight}px`
-        canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0)
-      }
-    },
-    [canvasWidth, canvasHeight]
   )
 
 
@@ -338,31 +338,88 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
   }, [getBaseCtx, fillPaperBackground, canvasWidth, canvasHeight])
 
-
-
   const setupCanvasSurface = useCallback(async () => {
-
     const drawCanvas = canvasRef.current
-
     const drawCtx = getCtx()
-
     if (!drawCanvas || !drawCtx) return
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    dprRef.current = dpr
+
+    for (const canvas of [baseCanvasRef.current, drawCanvas]) {
+      if (!canvas) continue
+      canvas.width = canvasWidth * dpr
+      canvas.height = canvasHeight * dpr
+      canvas.style.width = `${canvasWidth}px`
+      canvas.style.height = `${canvasHeight}px`
+      canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
+
+    await redrawBase()
+    drawCtx.clearRect(0, 0, canvasWidth, canvasHeight)
+    historyRef.current = []
+    pushHistory()
+    historyIndexRef.current = 0
+    notifyChange(false)
+    canvasReadyRef.current = true
+    canvasSizeRef.current = { w: canvasWidth, h: canvasHeight }
+  }, [getCtx, redrawBase, pushHistory, notifyChange, canvasWidth, canvasHeight])
+
+  const applyCanvasDimensions = useCallback(async () => {
+    const drawCanvas = canvasRef.current
+    const baseCanvas = baseCanvasRef.current
+    const drawCtx = getCtx()
+    if (!drawCanvas || !baseCanvas || !drawCtx) return
+
+    const prev = canvasSizeRef.current
+    const sizeChanged = prev.w !== canvasWidth || prev.h !== canvasHeight
+    if (!sizeChanged && canvasReadyRef.current) return
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    dprRef.current = dpr
+
+    const hadDrawing = historyIndexRef.current > 0
+    let snapshot = null
+    if (sizeChanged && hadDrawing && drawCanvas.width > 0 && prev.w > 0) {
+      snapshot = drawCanvas.toDataURL('image/png')
+    }
+
+    for (const canvas of [baseCanvas, drawCanvas]) {
+      canvas.width = canvasWidth * dpr
+      canvas.height = canvasHeight * dpr
+      canvas.style.width = `${canvasWidth}px`
+      canvas.style.height = `${canvasHeight}px`
+      canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0)
+    }
 
     await redrawBase()
 
-    drawCtx.clearRect(0, 0, canvasWidth, canvasHeight)
-
-    pushHistory()
-
-    historyIndexRef.current = 0
-
-    notifyChange(false)
+    if (snapshot) {
+      try {
+        const img = await loadImage(snapshot)
+        drawCtx.drawImage(img, 0, 0, canvasWidth, canvasHeight)
+        historyRef.current = []
+        historyRef.current.push(drawCtx.getImageData(0, 0, drawCanvas.width, drawCanvas.height))
+        historyIndexRef.current = 0
+        notifyChange(true)
+      } catch {
+        drawCtx.clearRect(0, 0, canvasWidth, canvasHeight)
+        historyRef.current = []
+        pushHistory()
+        historyIndexRef.current = 0
+        notifyChange(false)
+      }
+    } else if (!canvasReadyRef.current || sizeChanged) {
+      drawCtx.clearRect(0, 0, canvasWidth, canvasHeight)
+      historyRef.current = []
+      pushHistory()
+      historyIndexRef.current = 0
+      notifyChange(false)
+    }
 
     canvasReadyRef.current = true
-
-  }, [getCtx, redrawBase, pushHistory, notifyChange])
-
-
+    canvasSizeRef.current = { w: canvasWidth, h: canvasHeight }
+  }, [getCtx, redrawBase, pushHistory, notifyChange, canvasWidth, canvasHeight])
 
   const measureCanvas = useCallback(() => {
     const wrap = containerRef.current
@@ -419,23 +476,12 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
     measureCanvas()
     const t = window.requestAnimationFrame(measureCanvas)
     return () => window.cancelAnimationFrame(t)
-  }, [tab, selectedStickerId, photos.length, photoStickers.length, measureCanvas])
-
-
+  }, [selectedStickerId, photos.length, photoStickers.length, measureCanvas])
 
   useEffect(() => {
-
     if (!baseCanvasRef.current || !canvasRef.current) return
-
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
-
-    dprRef.current = dpr
-
-    setupCanvasPair(dpr)
-
-    setupCanvasSurface()
-
-  }, [canvasWidth, canvasHeight, setupCanvasPair, setupCanvasSurface])
+    applyCanvasDimensions()
+  }, [canvasWidth, canvasHeight, applyCanvasDimensions])
 
 
 
@@ -625,13 +671,157 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
   )
 
+  const handleMovePointerDown = useCallback(
+
+    (e) => {
+
+      if (tab !== 'move') return
+
+      if (e.pointerType === 'touch' && e.isPrimary === false) return
+
+      e.preventDefault()
+
+      canvasRef.current?.setPointerCapture(e.pointerId)
+
+      const pt = getPoint(e)
+
+      const ctx = getCtx()
+
+      const canvas = canvasRef.current
+
+      if (!ctx || !canvas) return
+
+      const dpr = dprRef.current
+
+      const px = Math.floor(pt.x * dpr)
+
+      const py = Math.floor(pt.y * dpr)
+
+      const region = extractConnectedRegion(ctx, px, py, canvas.width, canvas.height)
+
+      if (!region) {
+
+        showToast('👆 옮길 그림을 눌러주세요!')
+
+        return
+
+      }
+
+      moveDragRef.current = {
+
+        pointerId: e.pointerId,
+
+        cropCanvas: region.cropCanvas,
+
+        grabOffsetX: region.grabPx / dpr,
+
+        grabOffsetY: region.grabPy / dpr,
+
+        x: pt.x - region.grabPx / dpr,
+
+        y: pt.y - region.grabPy / dpr,
+
+        baseSnapshot: ctx.getImageData(0, 0, canvas.width, canvas.height),
+
+      }
+
+    },
+
+    [tab, getPoint, getCtx, showToast]
+
+  )
+
+  const handleMovePointerMove = useCallback(
+
+    (e) => {
+
+      const drag = moveDragRef.current
+
+      if (!drag || tab !== 'move') return
+
+      e.preventDefault()
+
+      const pt = getPoint(e)
+
+      const ctx = getCtx()
+
+      if (!ctx) return
+
+      drag.x = pt.x - drag.grabOffsetX
+
+      drag.y = pt.y - drag.grabOffsetY
+
+      ctx.putImageData(drag.baseSnapshot, 0, 0)
+
+      drawFloatingCrop(ctx, drag.cropCanvas, drag.x, drag.y, dprRef.current)
+
+    },
+
+    [tab, getPoint, getCtx]
+
+  )
+
+  const finishMoveDrag = useCallback(
+
+    (showMovedToast = true) => {
+
+      const drag = moveDragRef.current
+
+      if (!drag) return
+
+      const ctx = getCtx()
+
+      if (ctx) {
+
+        ctx.putImageData(drag.baseSnapshot, 0, 0)
+
+        commitFloatingCrop(ctx, drag.cropCanvas, drag.x, drag.y, dprRef.current)
+
+        pushHistory()
+
+        notifyChange(true)
+
+      }
+
+      moveDragRef.current = null
+
+      if (showMovedToast) showToast('👆 옮겼어요!')
+
+    },
+
+    [getCtx, pushHistory, notifyChange, showToast]
+
+  )
+
+  const handleMovePointerUp = useCallback(
+
+    (e) => {
+
+      if (!moveDragRef.current) return
+
+      e.preventDefault()
+
+      finishMoveDrag()
+
+    },
+
+    [finishMoveDrag]
+
+  )
+
+  useEffect(() => {
+    if (tab !== 'move' && moveDragRef.current) {
+      finishMoveDrag(false)
+    }
+  }, [tab, finishMoveDrag])
+
 
 
   const handlePointerDown = useCallback(
 
     (e) => {
 
-      if (tab === 'photo') return
+      if (tab === 'move' || tab === 'photo') return
 
       if (e.pointerType === 'touch' && e.isPrimary === false) return
 
@@ -799,6 +989,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     dragStickerRef.current = null
 
+    moveDragRef.current = null
+
     setPhotoStickers([])
 
     setSelectedStickerId(null)
@@ -935,7 +1127,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       setPhotoSize(sizeId)
 
-      if (tab === 'photo' && selectedStickerId) {
+      if ((tab === 'photo' || tab === 'move') && selectedStickerId) {
 
         setPhotoStickers((prev) =>
 
@@ -1017,7 +1209,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     (e, stickerId) => {
 
-      if (tab !== 'photo') return
+      if (tab !== 'photo' && tab !== 'move') return
 
       e.preventDefault()
 
@@ -1057,7 +1249,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       const drag = dragStickerRef.current
 
-      if (!drag || tab !== 'photo') return
+      if (!drag || (tab !== 'photo' && tab !== 'move')) return
 
       e.preventDefault()
 
@@ -1327,6 +1519,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
             { id: 'photo', icon: '📷', label: '사진' },
             { id: 'stamp', icon: '⭐', label: '스티커' },
             { id: 'shape', icon: '🔷', label: '도형' },
+            { id: 'move', icon: '✋', label: '옮기기' },
           ].map((t) => (
             <button
               key={t.id}
@@ -1369,7 +1562,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
           <div
 
-            className={`photo-sticker-layer ${tab === 'photo' ? 'active' : ''}`}
+            className={`photo-sticker-layer ${tab === 'photo' || tab === 'move' ? 'active' : ''}`}
 
             onPointerMove={handleStickerPointerMove}
 
@@ -1423,17 +1616,17 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
             ref={canvasRef}
 
-            className={`kid-draw-canvas draw-layer ${tab === 'photo' ? 'photo-mode' : ''}`}
+            className={`kid-draw-canvas draw-layer ${tab === 'photo' ? 'photo-mode' : ''} ${tab === 'move' ? 'move-mode' : ''}`}
 
-            onPointerDown={handlePointerDown}
+            onPointerDown={(e) => (tab === 'move' ? handleMovePointerDown(e) : handlePointerDown(e))}
 
-            onPointerMove={handlePointerMove}
+            onPointerMove={(e) => (tab === 'move' ? handleMovePointerMove(e) : handlePointerMove(e))}
 
-            onPointerUp={handlePointerUp}
+            onPointerUp={(e) => (tab === 'move' ? handleMovePointerUp(e) : handlePointerUp(e))}
 
-            onPointerLeave={handlePointerUp}
+            onPointerLeave={(e) => (tab === 'move' ? handleMovePointerUp(e) : handlePointerUp(e))}
 
-            onPointerCancel={handlePointerUp}
+            onPointerCancel={(e) => (tab === 'move' ? handleMovePointerUp(e) : handlePointerUp(e))}
 
             aria-label="그림 그리기 도화지"
 
@@ -1507,6 +1700,50 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
 
 
+      {tab === 'move' && (
+
+        <div className="photo-tab-tools move-tab-tools">
+
+          <p className="photo-tab-tip">
+
+            👆 그림·도형·선·스티커를 눌러 드래그해서 옮겨요! 사진도 눌러 옮길 수 있어요
+
+          </p>
+
+          {selectedSticker && (
+
+            <div className="photo-rotate-row">
+
+              <button type="button" className="photo-rotate-btn" onClick={() => rotateSelectedSticker(-15)}>
+
+                ↺ 왼쪽
+
+              </button>
+
+              <button type="button" className="photo-rotate-btn" onClick={() => rotateSelectedSticker(15)}>
+
+                ↻ 오른쪽
+
+              </button>
+
+              <button type="button" className="photo-remove-sticker-btn" onClick={removeSelectedSticker}>
+
+                🗑️ 선택한 사진 빼기
+
+              </button>
+
+            </div>
+
+          )}
+
+        </div>
+
+      )}
+
+
+
+      {tab !== 'move' && (
+
       <div className="draw-palette">
 
         {KID_COLORS.map((c) => (
@@ -1548,6 +1785,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
         ))}
 
       </div>
+
+      )}
 
 
 
@@ -1647,6 +1886,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
 
 
+      {tab !== 'move' && (
+
       <div className="draw-brush-row">
 
         <span className="draw-brush-title">굵기</span>
@@ -1675,9 +1916,11 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       </div>
 
+      )}
 
 
-      {(photos.length > 0 || photoStickers.length > 0) && (
+
+      {(photos.length > 0 || photoStickers.length > 0) && tab !== 'move' && (
 
         <div className="photo-size-row">
 

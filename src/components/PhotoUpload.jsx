@@ -95,21 +95,33 @@ export default function PhotoUpload({ photos, onAddPhoto, onRemovePhoto, onPhoto
       </div>
 
       <p className="photo-guide-text">
-        사진을 올리면 그림판에 들어가요 · 📷 사진 탭에서 옮기기·크기·회전
+        갤러리에서 사진을 고르거나 카메라로 찍을 수 있어요 · 그림판에 넣은 뒤 📷 탭에서 편집
       </p>
 
-      <label className="photo-add-btn photo-add-btn-block">
-        <input
-          type="file"
-          accept="image/*"
-          capture="environment"
-          multiple
-          onChange={handleFileChange}
-          hidden
-          disabled={Boolean(busyId)}
-        />
-        <span>+ 사진 추가</span>
-      </label>
+      <div className="photo-add-row">
+        <label className="photo-add-btn photo-add-btn-gallery">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/*"
+            multiple
+            onChange={handleFileChange}
+            hidden
+            disabled={Boolean(busyId)}
+          />
+          <span>🖼️ 갤러리에서 선택</span>
+        </label>
+        <label className="photo-add-btn photo-add-btn-camera">
+          <input
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileChange}
+            hidden
+            disabled={Boolean(busyId)}
+          />
+          <span>📷 카메라로 찍기</span>
+        </label>
+      </div>
     </div>
   )
 }
