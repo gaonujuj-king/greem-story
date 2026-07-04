@@ -219,7 +219,7 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 0.2rem;
   margin: 0;
 }
@@ -1513,6 +1513,42 @@
   cursor: grabbing;
 }
 
+.kid-draw-canvas.resize-mode {
+  cursor: pointer;
+}
+
+.resize-preset-row {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.resize-preset-btn {
+  padding: 0.45rem 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  border: 2px solid #c5e1ff;
+  border-radius: 10px;
+  background: #f0f8ff;
+  color: #1976d2;
+}
+
+.resize-preset-btn:active {
+  transform: scale(0.97);
+  background: #e3f2fd;
+}
+
+@media (max-width: 720px) {
+  .draw-tabs-inline {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .draw-tabs-inline .draw-tab-label {
+    font-size: 0.65rem;
+  }
+}
+
 .photo-sticker-layer {
   position: absolute;
   top: 0;
@@ -1621,6 +1657,43 @@
   transform: scale(0.97);
 }
 
+.move-size-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.move-size-label {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #666;
+  margin-right: 0.15rem;
+}
+
+.move-size-btn {
+  flex: 1;
+  min-width: 5.5rem;
+  padding: 0.45rem 0.6rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  border: 2px solid #ffd6e8;
+  border-radius: 10px;
+  background: #fff;
+  color: #e84393;
+}
+
+.move-size-btn:active {
+  transform: scale(0.97);
+  background: #fff5fa;
+}
+
+.move-photo-size-row {
+  width: 100%;
+  margin-top: 0.45rem;
+}
+
 .kid-draw-toast {
   position: absolute;
   bottom: 12px;
@@ -1667,7 +1740,7 @@
 
 .draw-tabs {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 0.35rem;
   margin-bottom: 0.45rem;
 }

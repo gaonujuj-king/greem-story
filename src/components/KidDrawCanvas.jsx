@@ -48,6 +48,14 @@ import {
 
   MOVE_START_THRESHOLD,
 
+  clampMoveScale,
+
+  getRegionCenter,
+
+  scaleRegionAtCenter,
+
+  RESIZE_STEPS,
+
 } from '../utils/canvasMoveUtils'
 
 import {
@@ -203,11 +211,13 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
   const dragStickerRef = useRef(null)
   const moveDragRef = useRef(null)
+  const resizeSelectionRef = useRef(null)
   const canvasSizeRef = useRef({ w: 0, h: 0 })
+  const [hasResizeSelection, setHasResizeSelection] = useState(false)
 
 
 
-  const activeTool = tab === 'draw' ? drawTool : tab === 'shape' ? shapeTool : tab === 'photo' ? 'photo' : tab === 'move' ? 'move' : 'stamp'
+  const activeTool = tab === 'draw' ? drawTool : tab === 'shape' ? shapeTool : tab === 'photo' ? 'photo' : tab === 'move' ? 'move' : tab === 'resize' ? 'resize' : 'stamp'
 
 
 
@@ -218,6 +228,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
     if (tab === 'photo') return TOOL_HINTS.photo
 
     if (tab === 'move') return TOOL_HINTS.move
+
+    if (tab === 'resize') return TOOL_HINTS.resize
 
     return TOOL_HINTS[activeTool] ?? TOOL_HINTS.pen
 
@@ -715,6 +727,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
         pointerId: e.pointerId,
 
+        pickedUp: true,
+
         dragging: false,
 
         startPt: pt,
@@ -731,7 +745,11 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
         fullSnapshot: ctx.getImageData(0, 0, canvas.width, canvas.height),
 
+        scale: 1,
+
       }
+
+      renderMovePreview(ctx, moveDragRef.current.fullSnapshot, moveDragRef.current.analysis, moveDragRef.current.x, moveDragRef.current.y, dpr, 1)
 
     },
 
@@ -763,11 +781,11 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       }
 
-      drag.x = pt.x - drag.grabOffsetX
+      drag.x = pt.x - drag.grabOffsetX * drag.scale
 
-      drag.y = pt.y - drag.grabOffsetY
+      drag.y = pt.y - drag.grabOffsetY * drag.scale
 
-      renderMovePreview(ctx, drag.fullSnapshot, drag.analysis, drag.x, drag.y, dprRef.current)
+      renderMovePreview(ctx, drag.fullSnapshot, drag.analysis, drag.x, drag.y, dprRef.current, drag.scale)
 
     },
 
@@ -783,7 +801,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       if (!drag) return
 
-      if (restoreCanvas && drag.dragging) {
+      if (restoreCanvas && drag.pickedUp) {
 
         const ctx = getCtx()
 
@@ -807,7 +825,19 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       if (!drag) return
 
-      if (!drag.dragging) {
+      if (!drag.pickedUp) {
+
+        moveDragRef.current = null
+
+        return
+
+      }
+
+      if (!drag.dragging && drag.scale === 1) {
+
+        const ctx = getCtx()
+
+        if (ctx) ctx.putImageData(drag.fullSnapshot, 0, 0)
 
         moveDragRef.current = null
 
@@ -819,7 +849,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       if (ctx) {
 
-        commitMovedRegion(ctx, drag.fullSnapshot, drag.analysis, drag.x, drag.y, dprRef.current)
+        commitMovedRegion(ctx, drag.fullSnapshot, drag.analysis, drag.x, drag.y, dprRef.current, drag.scale)
 
         pushHistory()
 
@@ -883,12 +913,225 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
   )
 
+  const adjustMoveScale = useCallback(
+
+    (factor) => {
+
+      const drag = moveDragRef.current
+
+      if (!drag?.pickedUp) {
+
+        showToast('👆 먼저 그림을 눌러 붙잡아요!')
+
+        return
+
+      }
+
+      const next = clampMoveScale(drag.scale * factor)
+
+      if (next === drag.scale) return
+
+      drag.scale = next
+
+      const ctx = getCtx()
+
+      if (ctx) {
+
+        renderMovePreview(ctx, drag.fullSnapshot, drag.analysis, drag.x, drag.y, dprRef.current, drag.scale)
+
+      }
+
+      showToast(factor < 1 ? '🔍 작게!' : '🔍 크게!')
+
+    },
+
+    [getCtx, showToast]
+
+  )
+
+  const selectResizeTarget = useCallback(
+
+    (pt) => {
+
+      const ctx = getCtx()
+
+      const canvas = canvasRef.current
+
+      if (!ctx || !canvas) return false
+
+      const dpr = dprRef.current
+
+      const px = Math.floor(pt.x * dpr)
+
+      const py = Math.floor(pt.y * dpr)
+
+      const analysis = analyzeConnectedRegion(ctx, px, py, canvas.width, canvas.height)
+
+      if (!analysis) {
+
+        resizeSelectionRef.current = null
+
+        setHasResizeSelection(false)
+
+        showToast('👆 바꿀 그림을 눌러주세요!')
+
+        return false
+
+      }
+
+      const center = getRegionCenter(analysis, dpr)
+
+      resizeSelectionRef.current = {
+
+        fullSnapshot: ctx.getImageData(0, 0, canvas.width, canvas.height),
+
+        analysis,
+
+        dpr,
+
+        centerX: center.x,
+
+        centerY: center.y,
+
+        scale: 1,
+
+      }
+
+      setHasResizeSelection(true)
+
+      showToast('✅ 선택! ➖ ➕ 로 크기를 바꿔요')
+
+      return true
+
+    },
+
+    [getCtx, showToast]
+
+  )
+
+  const handleResizePointerDown = useCallback(
+
+    (e) => {
+
+      if (tab !== 'resize') return
+
+      e.preventDefault()
+
+      selectResizeTarget(getPoint(e))
+
+    },
+
+    [tab, getPoint, selectResizeTarget]
+
+  )
+
+  const applyResizeScale = useCallback(
+
+    (factor) => {
+
+      const sel = resizeSelectionRef.current
+
+      if (!sel) {
+
+        showToast('👆 먼저 그림을 눌러 선택해요!')
+
+        return
+
+      }
+
+      const ctx = getCtx()
+
+      const canvas = canvasRef.current
+
+      if (!ctx || !canvas) return
+
+      const nextScale = clampMoveScale(sel.scale * factor)
+
+      if (nextScale === sel.scale) return
+
+      scaleRegionAtCenter(
+
+        ctx,
+
+        sel.fullSnapshot,
+
+        sel.analysis,
+
+        sel.centerX,
+
+        sel.centerY,
+
+        sel.dpr,
+
+        nextScale
+
+      )
+
+      pushHistory()
+
+      notifyChange(true)
+
+      const px = Math.floor(sel.centerX * sel.dpr)
+
+      const py = Math.floor(sel.centerY * sel.dpr)
+
+      const newAnalysis = analyzeConnectedRegion(ctx, px, py, canvas.width, canvas.height)
+
+      if (newAnalysis) {
+
+        const center = getRegionCenter(newAnalysis, sel.dpr)
+
+        resizeSelectionRef.current = {
+
+          fullSnapshot: ctx.getImageData(0, 0, canvas.width, canvas.height),
+
+          analysis: newAnalysis,
+
+          dpr: sel.dpr,
+
+          centerX: center.x,
+
+          centerY: center.y,
+
+          scale: 1,
+
+        }
+
+        setHasResizeSelection(true)
+
+      } else {
+
+        resizeSelectionRef.current = null
+
+        setHasResizeSelection(false)
+
+      }
+
+      showToast(factor < 1 ? '🔍 작게!' : '🔍 크게!')
+
+    },
+
+    [getCtx, pushHistory, notifyChange, showToast]
+
+  )
+
   useEffect(() => {
     if (tab !== 'move' && moveDragRef.current) {
-      if (moveDragRef.current.dragging) finishMoveDrag(false)
-      else moveDragRef.current = null
+      if (moveDragRef.current.pickedUp && (moveDragRef.current.dragging || moveDragRef.current.scale !== 1)) {
+        finishMoveDrag(false)
+      } else if (moveDragRef.current.pickedUp) {
+        const ctx = getCtx()
+        if (ctx) ctx.putImageData(moveDragRef.current.fullSnapshot, 0, 0)
+        moveDragRef.current = null
+      } else {
+        moveDragRef.current = null
+      }
     }
-  }, [tab, finishMoveDrag])
+    if (tab !== 'resize') {
+      resizeSelectionRef.current = null
+      setHasResizeSelection(false)
+    }
+  }, [tab, finishMoveDrag, getCtx])
 
 
 
@@ -896,7 +1139,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     (e) => {
 
-      if (tab === 'move' || tab === 'photo') return
+      if (tab === 'move' || tab === 'photo' || tab === 'resize') return
 
       if (e.pointerType === 'touch' && e.isPrimary === false) return
 
@@ -1066,6 +1309,10 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     moveDragRef.current = null
 
+    resizeSelectionRef.current = null
+
+    setHasResizeSelection(false)
+
     setPhotoStickers([])
 
     setSelectedStickerId(null)
@@ -1202,7 +1449,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       setPhotoSize(sizeId)
 
-      if ((tab === 'photo' || tab === 'move') && selectedStickerId) {
+      if ((tab === 'photo' || tab === 'move' || tab === 'resize') && selectedStickerId) {
 
         setPhotoStickers((prev) =>
 
@@ -1284,7 +1531,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     (e, stickerId) => {
 
-      if (tab !== 'photo' && tab !== 'move') return
+      if (tab !== 'photo' && tab !== 'move' && tab !== 'resize') return
 
       e.preventDefault()
 
@@ -1328,7 +1575,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       const drag = dragStickerRef.current
 
-      if (!drag || (tab !== 'photo' && tab !== 'move') || e.pointerId !== drag.pointerId) return
+      if (!drag || (tab !== 'photo' && tab !== 'move' && tab !== 'resize') || e.pointerId !== drag.pointerId) return
 
       e.preventDefault()
 
@@ -1607,6 +1854,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
             { id: 'stamp', icon: '⭐', label: '스티커' },
             { id: 'shape', icon: '🔷', label: '도형' },
             { id: 'move', icon: '✋', label: '옮기기' },
+            { id: 'resize', icon: '🔍', label: '크기' },
           ].map((t) => (
             <button
               key={t.id}
@@ -1649,7 +1897,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
           <div
 
-            className={`photo-sticker-layer ${tab === 'photo' || tab === 'move' ? 'active' : ''}`}
+            className={`photo-sticker-layer ${tab === 'photo' || tab === 'move' || tab === 'resize' ? 'active' : ''}`}
 
             onPointerMove={handleStickerPointerMove}
 
@@ -1707,9 +1955,13 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
             ref={canvasRef}
 
-            className={`kid-draw-canvas draw-layer ${tab === 'photo' ? 'photo-mode' : ''} ${tab === 'move' ? 'move-mode' : ''}`}
+            className={`kid-draw-canvas draw-layer ${tab === 'photo' ? 'photo-mode' : ''} ${tab === 'move' ? 'move-mode' : ''} ${tab === 'resize' ? 'resize-mode' : ''}`}
 
-            onPointerDown={(e) => (tab === 'move' ? handleMovePointerDown(e) : handlePointerDown(e))}
+            onPointerDown={(e) => {
+              if (tab === 'move') handleMovePointerDown(e)
+              else if (tab === 'resize') handleResizePointerDown(e)
+              else handlePointerDown(e)
+            }}
 
             onPointerMove={(e) => (tab === 'move' ? handleMovePointerMove(e) : handlePointerMove(e))}
 
@@ -1803,9 +2055,27 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
           <p className="photo-tab-tip">
 
-            👆 그림·도형·선·스티커를 눌러 드래그해서 옮겨요! 사진도 눌러 옮길 수 있어요
+            👆 그림·도형·선·스티커를 눌러 드래그해서 옮겨요! 드래그 중 ➖ ➕ 로 크기도 바꿀 수 있어요
 
           </p>
+
+          <div className="move-size-row">
+
+            <span className="move-size-label">그림 크기</span>
+
+            <button type="button" className="move-size-btn" onClick={() => adjustMoveScale(0.85)}>
+
+              ➖ 작게
+
+            </button>
+
+            <button type="button" className="move-size-btn" onClick={() => adjustMoveScale(1.15)}>
+
+              ➕ 크게
+
+            </button>
+
+          </div>
 
           {selectedSticker && (
 
@@ -1829,6 +2099,32 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
               </button>
 
+              <div className="photo-size-row move-photo-size-row">
+
+                <span className="photo-size-label">선택 사진 크기</span>
+
+                {PHOTO_SIZE_OPTIONS.map((opt) => (
+
+                  <button
+
+                    key={opt.id}
+
+                    type="button"
+
+                    className={`photo-size-btn ${(selectedSticker?.sizeId ?? photoSize) === opt.id ? 'active' : ''}`}
+
+                    onClick={() => applyPhotoSize(opt.id)}
+
+                  >
+
+                    {opt.label}
+
+                  </button>
+
+                ))}
+
+              </div>
+
             </div>
 
           )}
@@ -1839,7 +2135,99 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
 
 
-      {tab !== 'move' && (
+      {tab === 'resize' && (
+
+        <div className="photo-tab-tools resize-tab-tools">
+
+          <p className="photo-tab-tip">
+
+            {hasResizeSelection
+
+              ? '➖ ➕ 버튼으로 크기를 바꿔요! 다른 그림을 누르면 새로 선택해요'
+
+              : '👆 크기를 바꿀 그림·도형·스티커를 눌러주세요!'}
+
+          </p>
+
+          <div className="move-size-row">
+
+            <span className="move-size-label">그림 크기</span>
+
+            <button type="button" className="move-size-btn" onClick={() => applyResizeScale(0.85)}>
+
+              ➖ 작게
+
+            </button>
+
+            <button type="button" className="move-size-btn" onClick={() => applyResizeScale(1.15)}>
+
+              ➕ 크게
+
+            </button>
+
+          </div>
+
+          <div className="resize-preset-row">
+
+            {RESIZE_STEPS.map((step) => (
+
+              <button
+
+                key={step.id}
+
+                type="button"
+
+                className="resize-preset-btn"
+
+                onClick={() => applyResizeScale(step.factor)}
+
+              >
+
+                {step.label}
+
+              </button>
+
+            ))}
+
+          </div>
+
+          {selectedSticker && (
+
+            <div className="photo-size-row move-photo-size-row">
+
+              <span className="photo-size-label">선택 사진 크기</span>
+
+              {PHOTO_SIZE_OPTIONS.map((opt) => (
+
+                <button
+
+                  key={opt.id}
+
+                  type="button"
+
+                  className={`photo-size-btn ${(selectedSticker?.sizeId ?? photoSize) === opt.id ? 'active' : ''}`}
+
+                  onClick={() => applyPhotoSize(opt.id)}
+
+                >
+
+                  {opt.label}
+
+                </button>
+
+              ))}
+
+            </div>
+
+          )}
+
+        </div>
+
+      )}
+
+
+
+      {tab !== 'move' && tab !== 'resize' && (
 
       <div className="draw-palette">
 
@@ -1983,7 +2371,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
 
 
-      {tab !== 'move' && (
+      {tab !== 'move' && tab !== 'resize' && (
 
       <div className="draw-brush-row">
 
@@ -2017,7 +2405,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
 
 
-      {(photos.length > 0 || photoStickers.length > 0) && tab !== 'move' && (
+      {(photos.length > 0 || photoStickers.length > 0) && tab !== 'move' && tab !== 'resize' && (
 
         <div className="photo-size-row">
 

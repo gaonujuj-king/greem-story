@@ -1,5 +1,7 @@
 const ALPHA_THRESHOLD = 12
 const MOVE_START_THRESHOLD = 8
+const MOVE_SCALE_MIN = 0.2
+const MOVE_SCALE_MAX = 3
 
 function imageDataToCanvas(imageData) {
   const canvas = document.createElement('canvas')
@@ -96,34 +98,65 @@ function eraseVisitedPixels(ctx, visited, width, height) {
   ctx.putImageData(imageData, 0, 0)
 }
 
-export function renderMovePreview(ctx, fullSnapshot, analysis, x, y, dpr) {
-  ctx.putImageData(fullSnapshot, 0, 0)
-  eraseVisitedPixels(ctx, analysis.visited, analysis.width, analysis.height)
-  drawFloatingCrop(ctx, analysis.cropCanvas, x, y, dpr, 0.88)
-}
-
-export function commitMovedRegion(ctx, fullSnapshot, analysis, x, y, dpr) {
-  ctx.putImageData(fullSnapshot, 0, 0)
-  eraseVisitedPixels(ctx, analysis.visited, analysis.width, analysis.height)
-  drawFloatingCrop(ctx, analysis.cropCanvas, x, y, dpr, 1)
-}
-
-export function drawFloatingCrop(ctx, cropCanvas, x, y, dpr, alpha = 0.88) {
+/** 캔버스 ctx는 dpr 변환이 적용된 상태 → 논리 좌표로 그린다 */
+export function drawFloatingCrop(ctx, cropCanvas, analysis, x, y, dpr, scale = 1, alpha = 0.88) {
+  const w = (analysis.cropW / dpr) * scale
+  const h = (analysis.cropH / dpr) * scale
   ctx.save()
   ctx.globalAlpha = alpha
-  ctx.drawImage(cropCanvas, x * dpr, y * dpr, cropCanvas.width, cropCanvas.height)
+  ctx.drawImage(cropCanvas, x, y, w, h)
   ctx.restore()
 }
 
-export function commitFloatingCrop(ctx, cropCanvas, x, y, dpr) {
-  ctx.drawImage(cropCanvas, x * dpr, y * dpr, cropCanvas.width, cropCanvas.height)
+export function renderMovePreview(ctx, fullSnapshot, analysis, x, y, dpr, scale = 1) {
+  ctx.putImageData(fullSnapshot, 0, 0)
+  eraseVisitedPixels(ctx, analysis.visited, analysis.width, analysis.height)
+  drawFloatingCrop(ctx, analysis.cropCanvas, analysis, x, y, dpr, scale, 0.88)
+}
+
+export function commitMovedRegion(ctx, fullSnapshot, analysis, x, y, dpr, scale = 1) {
+  ctx.putImageData(fullSnapshot, 0, 0)
+  eraseVisitedPixels(ctx, analysis.visited, analysis.width, analysis.height)
+  drawFloatingCrop(ctx, analysis.cropCanvas, analysis, x, y, dpr, scale, 1)
 }
 
 export function moveDragDistance(start, end) {
   return Math.hypot(end.x - start.x, end.y - start.y)
 }
 
-export { MOVE_START_THRESHOLD }
+export function clampMoveScale(scale) {
+  return Math.min(MOVE_SCALE_MAX, Math.max(MOVE_SCALE_MIN, scale))
+}
+
+export function getRegionCenter(analysis, dpr) {
+  const lw = analysis.cropW / dpr
+  const lh = analysis.cropH / dpr
+  return {
+    x: analysis.minX / dpr + lw / 2,
+    y: analysis.minY / dpr + lh / 2,
+  }
+}
+
+/** 선택 영역을 가운데 기준으로 scale 배율만큼 키우거나 줄인다 */
+export function scaleRegionAtCenter(ctx, fullSnapshot, analysis, centerX, centerY, dpr, scale) {
+  const lw = analysis.cropW / dpr
+  const lh = analysis.cropH / dpr
+  const w = lw * scale
+  const h = lh * scale
+  const x = centerX - w / 2
+  const y = centerY - h / 2
+  commitMovedRegion(ctx, fullSnapshot, analysis, x, y, dpr, scale)
+  return { x, y, w, h }
+}
+
+export const RESIZE_STEPS = [
+  { id: 'xs', label: '아주 작게', factor: 0.7 },
+  { id: 's', label: '작게', factor: 0.85 },
+  { id: 'l', label: '크게', factor: 1.15 },
+  { id: 'xl', label: '아주 크게', factor: 1.3 },
+]
+
+export { MOVE_START_THRESHOLD, MOVE_SCALE_MIN, MOVE_SCALE_MAX }
 
 export function hitTestSticker(stickers, x, y) {
   for (let i = stickers.length - 1; i >= 0; i--) {
