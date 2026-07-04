@@ -1,5 +1,5 @@
 import { parseKoreanStory, SUBJECT_KOREAN as SEMANTIC_KOREAN } from './storySemanticParser'
-import { KOREAN_NOUN_LABELS } from './koreanNounDictionary'
+import { KOREAN_NOUN_LABELS, buildLexiconTypeMap, getActionLabelKo, findNounMatchesInText } from './koreanNounDictionary'
 import { buildRealisticImagePrompt } from './realisticPromptBuilder'
 import { finalizeImagePrompt, softenSceneDescription } from './childFriendlyPrompt'
 import {
@@ -22,61 +22,9 @@ const SUBJECT_KOREAN = {
 }
 
 const TYPE_MAP = {
-  ant: 'ant', ants: 'ant', 개미: 'ant',
-  cat: 'cat', cats: 'cat', kitten: 'cat', 고양이: 'cat',
-  dog: 'dog', dogs: 'dog', puppy: 'dog', 강아지: 'dog', 개: 'dog',
-  bird: 'bird', birds: 'bird', 새: 'bird',
-  rabbit: 'rabbit', 토끼: 'rabbit',
-  bear: 'bear', 곰: 'bear',
-  fish: 'fish', 물고기: 'fish',
-  shark: 'shark', 상어: 'shark',
-  baby_fish: 'baby_fish', 'baby fish': 'baby_fish',
-  whale: 'whale', 고래: 'whale',
-  butterfly: 'butterfly', 나비: 'butterfly',
-  flower: 'flower', 꽃: 'flower',
-  tree: 'tree', 나무: 'tree',
-  child: 'child', children: 'child', kid: 'child', 아이: 'child', 어린이: 'child',
-  dinosaur: 'dinosaur', 공룡: 'dinosaur',
-  bee: 'bee', 벌: 'bee', caterpillar: 'caterpillar', 애벌레: 'caterpillar',
-  turtle: 'turtle', 거북: 'turtle', 거북이: 'turtle',
-  tiger: 'tiger', 호랑이: 'tiger', fox: 'fox', 여우: 'fox',
-  frog: 'frog', 개구리: 'frog',
-  duck: 'duck', 오리: 'duck',
-  pig: 'pig', 돼지: 'pig',
-  cow: 'cow', 소: 'cow',
-  horse: 'horse', 말: 'horse',
-  chicken: 'chicken', 닭: 'chicken',
-  snail: 'snail', 달팽이: 'snail',
-  family: 'family', 가족: 'family',
-  princess: 'princess', 공주: 'princess',
-  robot: 'robot', 로봇: 'robot',
-  dragon: 'dragon', 용: 'dragon',
-  elephant: 'elephant', 코끼리: 'elephant',
-  lion: 'lion', 사자: 'lion',
-  penguin: 'penguin', 펭귄: 'penguin',
-  snowman: 'snowman', 눈사람: 'snowman',
-  spider: 'spider', 거미: 'spider',
-  octopus: 'octopus', 문어: 'octopus', 오징어: 'octopus',
-  crab: 'crab', 꽃게: 'crab',
-  worm: 'worm', 벌레: 'worm', 지렁이: 'worm',
-  dragonfly: 'dragonfly', 잠자리: 'dragonfly',
-  ladybug: 'ladybug', 무당벌레: 'ladybug',
-  monkey: 'monkey', 원숭이: 'monkey',
-  giraffe: 'giraffe', 기린: 'giraffe',
-  zebra: 'zebra', 얼룩말: 'zebra',
-  sheep: 'sheep', 양: 'sheep',
-  goat: 'goat', 염소: 'goat',
-  deer: 'deer', 사슴: 'deer',
-  chicken: 'chicken', 닭: 'chicken',
-  flower: 'flower', 꽃: 'flower',
-  tree: 'tree', 나무: 'tree',
-  car: 'car', 자동차: 'car',
-  ball: 'ball', 공: 'ball',
-  book: 'book', 책: 'book',
-  kite: 'kite', 연: 'kite',
-  cake: 'cake', 케이크: 'cake',
-  mountain: 'mountain', 산: 'mountain',
-  river: 'river', 강: 'river',
+  ...buildLexiconTypeMap(),
+  ants: 'ant', cats: 'cat', kittens: 'cat', dogs: 'dog', puppies: 'dog',
+  birds: 'bird', children: 'child', kids: 'child', 'baby fish': 'baby_fish',
 }
 
 const SETTING_MAP = {
@@ -105,8 +53,12 @@ const ACTION_MAP = {
   walking: 'walking', running: 'running', playing: 'playing',
   eating: 'eating', sleeping: 'sleeping', swimming: 'swimming',
   flying: 'flying', reading: 'reading', marching: 'walking',
-  sitting: 'playing', dancing: 'dancing', chasing: 'chasing',
+  sitting: 'sitting', standing: 'standing', dancing: 'dancing', chasing: 'chasing',
   fleeing: 'fleeing', being_eaten: 'being_eaten', fighting: 'fighting',
+  smiling: 'smiling', laughing: 'laughing', crying: 'crying', angry: 'angry',
+  surprised: 'surprised', scared: 'scared', singing: 'singing', talking: 'talking',
+  hugging: 'hugging', waving: 'waving', jumping: 'jumping', drawing: 'drawing',
+  hiding: 'hiding', waiting: 'waiting',
 }
 
 function mapType(raw) {
@@ -126,7 +78,7 @@ function normalizeCharacter(char) {
   return {
     type,
     count: Math.min(Math.max(Number(char.count) || 1, 1), 12),
-    action: ACTION_MAP[String(char.action ?? '').toLowerCase()] ?? 'walking',
+    action: ACTION_MAP[String(char.action ?? '').toLowerCase()] ?? 'standing',
     role,
     detail: char.detail ?? char.description ?? '',
     english: char.english ?? char.label ?? String(raw),
@@ -156,13 +108,13 @@ function buildCaptionFromAnalysis(analysis) {
   }
 
   if (analysis.formation === 'line') parts.push('줄')
-  if (analysis.action && analysis.action !== 'walking') {
-    const actionKo = {
-      playing: '놀이', dancing: '춤', eating: '잡아먹는 중', chasing: '쫓는 중',
-      sleeping: '잠', running: '달리기', swimming: '헤엄', flying: '날기', reading: '책읽기',
-      fighting: analysis.conflictIntensity === 'verbal' ? '말다툼' : '싸움',
+  const actionLabel = getActionLabelKo(analysis.action)
+  if (actionLabel && analysis.action !== 'standing') {
+    if (analysis.action === 'fighting') {
+      parts.push(analysis.conflictIntensity === 'verbal' ? '말다툼' : '싸움')
+    } else {
+      parts.push(actionLabel)
     }
-    if (actionKo[analysis.action]) parts.push(actionKo[analysis.action])
   }
 
   return parts.join(' · ')
@@ -215,7 +167,7 @@ function analysisToScene(analysis) {
     objects: analysis.objects ?? [],
     formation: analysis.formation ?? 'group',
     count: antChar?.count ?? mainChar?.count ?? analysis.characters?.length ?? 5,
-    action: mainChar?.action ?? analysis.action ?? 'walking',
+    action: mainChar?.action ?? analysis.action ?? 'standing',
     mood: analysis.mood ?? 'happy',
     conflictIntensity: analysis.conflictIntensity ?? null,
     fightOutcome: analysis.fightOutcome ?? null,
@@ -260,7 +212,7 @@ function normalizeLLMResult(raw, originalText) {
     setting,
     weather,
     formation,
-    action: ACTION_MAP[String(raw.action ?? '').toLowerCase()] ?? characters[0]?.action ?? 'walking',
+    action: ACTION_MAP[String(raw.action ?? '').toLowerCase()] ?? characters[0]?.action ?? 'standing',
     mood: raw.mood ?? 'happy',
     conflictIntensity: raw.conflictIntensity === 'verbal' ? 'verbal' : raw.conflictIntensity === 'physical' ? 'physical' : null,
     fightOutcome: ['ongoing', 'someone_won', 'someone_lost'].includes(raw.fightOutcome) ? raw.fightOutcome : null,
@@ -287,6 +239,39 @@ function normalizeLLMResult(raw, originalText) {
 
 function storyMentionsAnt(text) {
   return text.replace(/\s+/g, '').includes('개미')
+}
+
+function enrichWithDictionaryEntities(analysis, text) {
+  const dictTypes = findNounMatchesInText(text).types
+  if (dictTypes.length === 0) return analysis
+
+  const charMap = new Map((analysis.characters ?? []).map((c) => [c.type, c]))
+  for (const type of dictTypes) {
+    if (!charMap.has(type)) {
+      charMap.set(type, {
+        type,
+        count: 1,
+        action: analysis.action ?? 'standing',
+        role: 'subject',
+        english: KOREAN_NOUN_LABELS[type] ?? type,
+        detail: '',
+      })
+    }
+  }
+
+  const ordered = []
+  for (const type of dictTypes) {
+    if (charMap.has(type)) ordered.push(charMap.get(type))
+  }
+  for (const c of analysis.characters ?? []) {
+    if (!ordered.some((o) => o.type === c.type)) ordered.push(c)
+  }
+
+  return {
+    ...analysis,
+    characters: ordered,
+    entities: ordered.map((c) => c.type),
+  }
 }
 
 function mergeLLMIntoSemantic(semantic, llmRaw, trimmed, lexicalWeak = false) {
@@ -340,7 +325,7 @@ function mergeLLMIntoSemantic(semantic, llmRaw, trimmed, lexicalWeak = false) {
     llmAnalysis.characters?.length > 0
 
   if (useLLMPrimary) {
-    return {
+    const merged = {
       ...semantic,
       caption: llmAnalysis.caption || semantic.caption,
       setting: llmAnalysis.setting || semantic.setting,
@@ -358,6 +343,7 @@ function mergeLLMIntoSemantic(semantic, llmRaw, trimmed, lexicalWeak = false) {
       fromLLM: true,
       scenarioId: semantic.scenarioId,
     }
+    return enrichWithDictionaryEntities(merged, trimmed)
   }
 
   if (llmRaw.imagePrompt) {
@@ -367,13 +353,15 @@ function mergeLLMIntoSemantic(semantic, llmRaw, trimmed, lexicalWeak = false) {
       semantic.characters = llmAnalysis.characters
       semantic.entities = llmAnalysis.characters.map((c) => c.type)
     }
-    if (llmAnalysis.action && llmAnalysis.action !== 'walking') semantic.action = llmAnalysis.action
+    if (llmAnalysis.action && !['walking', 'standing'].includes(llmAnalysis.action)) {
+      semantic.action = llmAnalysis.action
+    }
     if (llmAnalysis.mood) semantic.mood = llmAnalysis.mood
     if (llmAnalysis.caption) semantic.caption = llmAnalysis.caption
     semantic.fromLLM = true
   }
 
-  return semantic
+  return enrichWithDictionaryEntities(semantic, trimmed)
 }
 
 export async function analyzeStory(text) {
@@ -428,7 +416,7 @@ export async function analyzeStory(text) {
   semantic.sceneDescription = softenSceneDescription(semantic.sceneDescription, semantic)
 
   console.log('[이야기 분석] 결과:', semantic)
-  return analysisToScene(semantic)
+  return analysisToScene(enrichWithDictionaryEntities(semantic, trimmed))
 }
 
 export function analyzeStorySync(text) {

@@ -2,6 +2,41 @@ import { analyzeStory, analyzeStorySync } from './storyAnalyzer'
 import { drawStoryScene } from './storySceneDrawer'
 import { generateAIStoryImage } from './aiImageGenerator'
 import { generatePhotoBasedStoryImage } from './photoStoryRenderer'
+import { buildRealisticImagePrompt } from './realisticPromptBuilder'
+
+const CANVAS_PREFERRED_TYPES = new Set([
+  'slide', 'swing', 'piano', 'watermelon', 'cotton_candy', 'spider', 'ant',
+  'doll', 'teddy_bear', 'balloon', 'block', 'puzzle', 'toy_car',
+])
+
+const AI_PHOTO_SCENARIOS = new Set(['bathroom_hygiene'])
+
+const AI_PHOTO_TYPES = new Set(['toothpaste', 'toothbrush', 'soap'])
+
+function getSceneEntityTypes(scene) {
+  if (scene.characters?.length) return scene.characters.map((c) => c.type).filter(Boolean)
+  return scene.entities ?? []
+}
+
+export function prefersAIPhotoScene(scene) {
+  if (AI_PHOTO_SCENARIOS.has(scene.scenarioId)) return true
+  const types = getSceneEntityTypes(scene)
+  return types.some((t) => AI_PHOTO_TYPES.has(t))
+}
+
+export function isCanvasPreferredScene(scene) {
+  if (prefersAIPhotoScene(scene)) return false
+
+  if (scene.scenarioId === 'animals_on_playground') return true
+  if (scene.characters?.some((c) => c.role === 'playground' || c.type === 'slide')) {
+    return true
+  }
+
+  const types = getSceneEntityTypes(scene)
+  if (types.length === 0) return false
+
+  return types.some((t) => CANVAS_PREFERRED_TYPES.has(t))
+}
 
 async function generateCanvasStoryImage(scene, photoSrcs) {
   const canvas = document.createElement('canvas')
@@ -72,23 +107,49 @@ export async function generateLocalStoryImage(storyText, photoSrcs = [], options
     return { blob, scene, method: 'photo' }
   }
 
-  if (forceCanvas || !navigator.onLine) {
+  const isPlaygroundScene =
+    scene.scenarioId === 'animals_on_playground' ||
+    scene.characters?.some((c) => c.role === 'playground' || c.type === 'slide')
+
+  const preferCanvas = forceCanvas || isPlaygroundScene || isCanvasPreferredScene(scene)
+
+  if (preferCanvas) {
+    console.log('[그림 생성] 캔버스 우선 장면:', trimmed, getSceneEntityTypes(scene))
+    const blob = await generateCanvasStoryImage(scene, photoSrcs)
+    return { blob, scene, method: 'canvas' }
+  }
+
+  if (!navigator.onLine) {
     const blob = await generateCanvasStoryImage(scene, photoSrcs)
     return { blob, scene, method: 'canvas' }
   }
 
   if (navigator.onLine) {
     try {
-      console.log('[그림 생성] AI 사진 생성 시도:', trimmed)
-      const aiResult = await generateAIStoryImage(scene, trimmed)
+      let sceneForAI = scene
+      if (prefersAIPhotoScene(scene)) {
+        sceneForAI = {
+          ...scene,
+          imagePrompt: buildRealisticImagePrompt(
+            { ...scene, imagePrompt: '', fromLLM: false },
+            trimmed
+          ),
+        }
+        console.log('[그림 생성] 치약/욕실 — AI 사진 생성:', trimmed)
+      } else {
+        console.log('[그림 생성] AI 사진 생성 시도:', trimmed)
+      }
+
+      const aiResult = await generateAIStoryImage(sceneForAI, trimmed)
 
       if (aiResult.blob || aiResult.url) {
         const blob = await ensureSaveableBlob(scene, photoSrcs, aiResult)
-        console.log('[그림 생성] AI 사진 성공', aiResult.blob ? '(blob)' : '(화면=AI, 저장=캔버스)')
+        const usedAI = aiResult.blob?.size > 0 || aiResult.url
+        console.log('[그림 생성] AI 사진 성공', aiResult.blob?.size ? '(blob)' : '(URL)')
         return {
           blob,
-          scene,
-          method: aiResult.blob?.size > 0 ? 'ai' : 'canvas',
+          scene: sceneForAI,
+          method: usedAI ? 'ai' : 'canvas',
           directUrl: aiResult.url && !aiResult.blob?.size ? aiResult.url : null,
         }
       }

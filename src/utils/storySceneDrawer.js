@@ -1,3 +1,5 @@
+import { NOUN_CATEGORIES, isFoodEntity } from './koreanNounDictionary'
+
 function createSeededRandom(seed) {
   let value = 0
   for (let i = 0; i < seed.length; i++) {
@@ -204,6 +206,26 @@ function drawTree(ctx, x, y, size) {
   ctx.beginPath()
   ctx.arc(x + size * 0.28, y + size * 0.05, size * 0.32, 0, Math.PI * 2)
   ctx.fill()
+  ctx.restore()
+}
+
+function drawLeaf(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#43a047'
+  ctx.strokeStyle = '#2e7d32'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.moveTo(x - size * 0.05, y + size * 0.15)
+  ctx.quadraticCurveTo(x - size * 0.45, y - size * 0.1, x, y - size * 0.45)
+  ctx.quadraticCurveTo(x + size * 0.45, y - size * 0.1, x + size * 0.05, y + size * 0.15)
+  ctx.quadraticCurveTo(x, y + size * 0.05, x - size * 0.05, y + size * 0.15)
+  ctx.fill()
+  ctx.stroke()
+  ctx.strokeStyle = '#1b5e20'
+  ctx.beginPath()
+  ctx.moveTo(x, y + size * 0.1)
+  ctx.lineTo(x, y - size * 0.4)
+  ctx.stroke()
   ctx.restore()
 }
 
@@ -856,6 +878,87 @@ function drawCake(ctx, x, y, size) {
   ctx.restore()
 }
 
+function drawBread(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#d4a574'
+  ctx.strokeStyle = '#8d6e63'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.roundRect(x - size * 0.32, y - size * 0.18, size * 0.64, size * 0.36, 14)
+  ctx.fill()
+  ctx.stroke()
+  ctx.fillStyle = '#a1887f'
+  ctx.beginPath()
+  ctx.moveTo(x - size * 0.28, y - size * 0.14)
+  ctx.quadraticCurveTo(x, y - size * 0.28, x + size * 0.28, y - size * 0.14)
+  ctx.stroke()
+  ctx.fillStyle = '#5d4037'
+  ctx.font = `bold ${Math.max(12, size * 0.1)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText('빵', x, y + size * 0.06)
+  ctx.restore()
+}
+
+function drawWatermelon(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#2e7d32'
+  ctx.beginPath()
+  ctx.arc(x, y, size * 0.38, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#1b5e20'
+  ctx.lineWidth = 2
+  for (let i = -2; i <= 2; i++) {
+    ctx.beginPath()
+    ctx.moveTo(x - size * 0.35, y + i * size * 0.12)
+    ctx.lineTo(x + size * 0.35, y + i * size * 0.12)
+    ctx.stroke()
+  }
+  ctx.fillStyle = '#ff5252'
+  ctx.beginPath()
+  ctx.arc(x + size * 0.08, y, size * 0.28, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#222'
+  for (let i = 0; i < 6; i++) {
+    const angle = (i / 6) * Math.PI * 2
+    ctx.beginPath()
+    ctx.arc(
+      x + size * 0.08 + Math.cos(angle) * size * 0.12,
+      y + Math.sin(angle) * size * 0.12,
+      size * 0.025,
+      0,
+      Math.PI * 2
+    )
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+function drawCottonCandy(ctx, x, y, size) {
+  ctx.save()
+  ctx.strokeStyle = '#fff'
+  ctx.lineWidth = size * 0.04
+  ctx.beginPath()
+  ctx.moveTo(x, y + size * 0.35)
+  ctx.lineTo(x, y + size * 0.05)
+  ctx.stroke()
+  const colors = ['#ffb3d9', '#ffcce6', '#ff99cc']
+  for (let i = 0; i < 5; i++) {
+    ctx.fillStyle = colors[i % colors.length]
+    ctx.globalAlpha = 0.85
+    ctx.beginPath()
+    ctx.arc(
+      x + (i - 2) * size * 0.08,
+      y - size * (0.05 + (i % 3) * 0.08),
+      size * (0.18 - (i % 2) * 0.03),
+      0,
+      Math.PI * 2
+    )
+    ctx.fill()
+  }
+  ctx.globalAlpha = 1
+  ctx.restore()
+}
+
 function drawTurtle(ctx, x, y, size) {
   ctx.save()
   ctx.fillStyle = '#558B2F'
@@ -905,6 +1008,195 @@ function drawSpider(ctx, x, y, size) {
   ctx.restore()
 }
 
+const FRUIT_COLORS = {
+  apple: '#e53935', banana: '#fdd835', orange: '#fb8c00', grape: '#8e24aa',
+  strawberry: '#e91e63', peach: '#ffab91', cherry: '#c62828', pear: '#aed581',
+  pineapple: '#ffc107', melon: '#81c784', tangerine: '#ff9800', lemon: '#ffeb3b',
+  blueberry: '#3949ab', chestnut: '#795548',
+}
+
+function drawColoredCircle(ctx, x, y, size, color, withStem = false) {
+  ctx.save()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.arc(x, y, size * 0.32, 0, Math.PI * 2)
+  ctx.fill()
+  if (withStem) {
+    ctx.strokeStyle = '#558B2F'
+    ctx.lineWidth = 3
+    ctx.beginPath()
+    ctx.moveTo(x, y - size * 0.32)
+    ctx.lineTo(x + size * 0.08, y - size * 0.5)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+function drawGenericObject(ctx, x, y, size, color = '#90caf9') {
+  ctx.save()
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.roundRect(x - size * 0.28, y - size * 0.22, size * 0.56, size * 0.44, 8)
+  ctx.fill()
+  ctx.restore()
+}
+
+function drawToothpaste(ctx, x, y, size) {
+  ctx.save()
+  // 튜브 본체
+  ctx.fillStyle = '#ffffff'
+  ctx.strokeStyle = '#1565c0'
+  ctx.lineWidth = Math.max(3, size * 0.025)
+  ctx.beginPath()
+  ctx.roundRect(x - size * 0.14, y - size * 0.34, size * 0.28, size * 0.58, 10)
+  ctx.fill()
+  ctx.stroke()
+  // 컬러 라벨
+  ctx.fillStyle = '#42a5f5'
+  ctx.fillRect(x - size * 0.11, y - size * 0.22, size * 0.22, size * 0.32)
+  // 글자
+  ctx.fillStyle = '#fff'
+  ctx.font = `bold ${Math.max(14, size * 0.11)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('치약', x, y - size * 0.06)
+  // 뚜껑
+  ctx.fillStyle = '#1565c0'
+  ctx.beginPath()
+  ctx.roundRect(x - size * 0.1, y - size * 0.42, size * 0.2, size * 0.1, 4)
+  ctx.fill()
+  // 튜브 입구
+  ctx.fillStyle = '#e3f2fd'
+  ctx.beginPath()
+  ctx.moveTo(x - size * 0.05, y + size * 0.22)
+  ctx.lineTo(x, y + size * 0.34)
+  ctx.lineTo(x + size * 0.05, y + size * 0.22)
+  ctx.closePath()
+  ctx.fill()
+  ctx.strokeStyle = '#1565c0'
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawToothbrush(ctx, x, y, size) {
+  ctx.save()
+  ctx.strokeStyle = '#42a5f5'
+  ctx.lineWidth = Math.max(3, size * 0.04)
+  ctx.lineCap = 'round'
+  ctx.beginPath()
+  ctx.moveTo(x - size * 0.15, y + size * 0.2)
+  ctx.lineTo(x + size * 0.1, y - size * 0.25)
+  ctx.stroke()
+  ctx.fillStyle = '#fff'
+  ctx.strokeStyle = '#90caf9'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.roundRect(x + size * 0.04, y - size * 0.32, size * 0.12, size * 0.14, 3)
+  ctx.fill()
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawTrain(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#ef5350'
+  ctx.fillRect(x - size * 0.35, y - size * 0.15, size * 0.7, size * 0.3)
+  ctx.fillStyle = '#333'
+  ctx.beginPath()
+  ctx.arc(x - size * 0.2, y + size * 0.18, size * 0.1, 0, Math.PI * 2)
+  ctx.arc(x + size * 0.2, y + size * 0.18, size * 0.1, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+function drawAirplane(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#42a5f5'
+  ctx.beginPath()
+  ctx.ellipse(x, y, size * 0.35, size * 0.1, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.beginPath()
+  ctx.moveTo(x, y - size * 0.25)
+  ctx.lineTo(x + size * 0.05, y)
+  ctx.lineTo(x, y + size * 0.08)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
+
+function drawBicycle(ctx, x, y, size) {
+  ctx.save()
+  ctx.strokeStyle = '#333'
+  ctx.lineWidth = 3
+  ctx.beginPath()
+  ctx.arc(x - size * 0.18, y + size * 0.1, size * 0.14, 0, Math.PI * 2)
+  ctx.arc(x + size * 0.18, y + size * 0.1, size * 0.14, 0, Math.PI * 2)
+  ctx.moveTo(x - size * 0.18, y + size * 0.1)
+  ctx.lineTo(x, y - size * 0.05)
+  ctx.lineTo(x + size * 0.18, y + size * 0.1)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawPiano(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#1a1a1a'
+  ctx.beginPath()
+  ctx.roundRect(x - size * 0.42, y - size * 0.1, size * 0.84, size * 0.38, 6)
+  ctx.fill()
+  ctx.fillStyle = '#fff'
+  for (let i = 0; i < 8; i++) {
+    ctx.fillRect(x - size * 0.36 + i * size * 0.08, y - size * 0.08, size * 0.045, size * 0.24)
+  }
+  ctx.fillStyle = '#111'
+  for (let i = 0; i < 5; i++) {
+    ctx.fillRect(x - size * 0.33 + i * size * 0.08 + size * 0.055, y - size * 0.08, size * 0.028, size * 0.15)
+  }
+  ctx.fillStyle = '#333'
+  ctx.fillRect(x - size * 0.42, y + size * 0.18, size * 0.84, size * 0.1)
+  ctx.restore()
+}
+
+function drawGuitar(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#d4a574'
+  ctx.beginPath()
+  ctx.ellipse(x, y + size * 0.05, size * 0.22, size * 0.28, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillRect(x - size * 0.04, y - size * 0.35, size * 0.08, size * 0.35)
+  ctx.fillStyle = '#333'
+  ctx.fillRect(x - size * 0.06, y - size * 0.38, size * 0.12, size * 0.08)
+  ctx.restore()
+}
+
+function drawDrum(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#c62828'
+  ctx.beginPath()
+  ctx.ellipse(x, y, size * 0.28, size * 0.12, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#8d6e63'
+  ctx.fillRect(x - size * 0.28, y, size * 0.56, size * 0.22)
+  ctx.beginPath()
+  ctx.ellipse(x, y + size * 0.22, size * 0.28, size * 0.12, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.restore()
+}
+
+function drawShoe(ctx, x, y, size) {
+  ctx.save()
+  ctx.fillStyle = '#ff7043'
+  ctx.beginPath()
+  ctx.ellipse(x, y + size * 0.05, size * 0.3, size * 0.14, 0, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillRect(x - size * 0.12, y - size * 0.12, size * 0.18, size * 0.16)
+  ctx.restore()
+}
+
+function drawDollToy(ctx, x, y, size) {
+  drawChild(ctx, x, y, size * 0.9)
+}
+
 const ENTITY_DRAWERS = {
   cat: drawCat,
   dog: drawDog,
@@ -919,6 +1211,9 @@ const ENTITY_DRAWERS = {
   butterfly: drawButterfly,
   flower: drawFlower,
   tree: drawTree,
+  toothbrush: drawToothbrush,
+  toothpaste: drawToothpaste,
+  soap: (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#e1f5fe'),
   house: drawHouse,
   car: drawCar,
   ball: drawBall,
@@ -929,6 +1224,8 @@ const ENTITY_DRAWERS = {
   princess: drawChild,
   robot: drawCar,
   cake: drawCake,
+  watermelon: drawWatermelon,
+  cotton_candy: drawCottonCandy,
   rainbow: drawRainbow,
   dragon: drawDinosaur,
   elephant: drawDog,
@@ -955,11 +1252,187 @@ const ENTITY_DRAWERS = {
   goat: drawDog,
   deer: drawDog,
   chicken: drawBird,
+  bus: drawCar,
+  train: drawTrain,
+  airplane: drawAirplane,
+  bicycle: drawBicycle,
+  boat: drawFish,
+  rocket: drawCar,
+  mushroom: drawGenericObject,
+  cactus: drawTree,
+  bamboo: drawTree,
+  grass: drawFlower,
+  leaf: drawLeaf,
+  sunflower: drawFlower,
+  rose: drawFlower,
+  tulip: drawFlower,
+  seed: drawGenericObject,
+  apple: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.apple, true),
+  banana: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.banana, false),
+  orange: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.orange, true),
+  grape: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.grape, true),
+  strawberry: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.strawberry, true),
+  peach: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.peach, true),
+  cherry: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.cherry, true),
+  pear: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.pear, true),
+  pineapple: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.pineapple, true),
+  melon: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.melon, true),
+  tangerine: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.tangerine, true),
+  lemon: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.lemon, true),
+  blueberry: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.blueberry, true),
+  chestnut: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, FRUIT_COLORS.chestnut, false),
+  carrot: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#ff7043', true),
+  tomato: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#e53935', true),
+  corn: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#ffeb3b', false),
+  pumpkin: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#ff9800', true),
+  potato: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#a1887f', false),
+  cabbage: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#81c784', false),
+  cucumber: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#66bb6a', true),
+  broccoli: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#388e3c', false),
+  onion: (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#ffe0b2', false),
+  cookie: drawCake,
+  bread: drawBread,
+  candy: drawCottonCandy,
+  chocolate: drawGenericObject,
+  ice_cream: drawCake,
+  pizza: drawGenericObject,
+  hamburger: drawGenericObject,
+  ramen: drawGenericObject,
+  rice: drawGenericObject,
+  soup: drawGenericObject,
+  milk: drawGenericObject,
+  juice: drawGenericObject,
+  toy: drawDollToy,
+  doll: drawDollToy,
+  block: (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#ffca28'),
+  umbrella: drawGenericObject,
+  bag: drawGenericObject,
+  pencil: drawGenericObject,
+  crayon: drawGenericObject,
+  eraser: drawGenericObject,
+  scissors: drawGenericObject,
+  cup: drawGenericObject,
+  bowl: drawGenericObject,
+  spoon: drawGenericObject,
+  chair: drawGenericObject,
+  table: drawGenericObject,
+  bed: drawGenericObject,
+  clock: drawGenericObject,
+  phone: drawGenericObject,
+  camera: drawGenericObject,
+  gift: drawGenericObject,
+  box: drawGenericObject,
+  key: drawGenericObject,
+  lamp: drawGenericObject,
+  slide: drawSlide,
+  swing: drawGenericObject,
+  rock: drawGenericObject,
+  jellyfish: drawFish,
+  starfish: drawFish,
+  seahorse: drawFish,
+  shrimp: drawFish,
+  seal: drawFish,
+  mouse: drawRabbit,
+  hamster: drawRabbit,
+  squirrel: drawRabbit,
+  wolf: drawDog,
+  raccoon: drawDog,
+  leopard: drawCat,
+  koala: drawDog,
+  kangaroo: drawDog,
+  camel: drawDog,
+  donkey: drawDog,
+  goose: drawBird,
+  turkey: drawBird,
+  owl: drawBird,
+  eagle: drawBird,
+  swan: drawBird,
+  flamingo: drawBird,
+  snake: drawAnt,
+  lizard: drawAnt,
+  crocodile: drawFish,
+  beetle: drawButterfly,
+  grasshopper: drawButterfly,
+  mosquito: drawButterfly,
+  bat: drawBird,
+  hippo: drawDog,
+  zebra: drawDog,
+  piano: drawPiano,
+  guitar: drawGuitar,
+  violin: drawGuitar,
+  cello: drawGuitar,
+  drum: drawDrum,
+  flute: drawGenericObject,
+  trumpet: drawGenericObject,
+  harp: drawGuitar,
+  xylophone: drawGenericObject,
+  harmonica: drawGenericObject,
+  accordion: drawGenericObject,
+  ukulele: drawGuitar,
+  microphone: drawGenericObject,
+  instrument: drawPiano,
+  necklace: drawGenericObject,
+  ring: drawGenericObject,
+  bracelet: drawGenericObject,
+  watch: drawGenericObject,
+  glasses: drawGenericObject,
+  hairpin: drawGenericObject,
+  crown: drawGenericObject,
+  belt: drawGenericObject,
+  wallet: drawGenericObject,
+  accessory: drawGenericObject,
+  clothes: drawGenericObject,
+  dress: drawGenericObject,
+  shirt: drawGenericObject,
+  pants: drawGenericObject,
+  skirt: drawGenericObject,
+  coat: drawGenericObject,
+  socks: drawGenericObject,
+  gloves: drawGenericObject,
+  scarf: drawGenericObject,
+  pajamas: drawGenericObject,
+  uniform: drawGenericObject,
+  apron: drawGenericObject,
+  hat: drawGenericObject,
+  shoe: drawShoe,
+  rain_boots: drawShoe,
+  teddy_bear: drawDollToy,
+  action_figure: drawDollToy,
+  puzzle: (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#ffca28'),
+  yo_yo: drawBall,
+  spinning_top: drawBall,
+  toy_car: drawCar,
+  toy_train: drawTrain,
+  stuffed_animal: drawDollToy,
+  balloon: drawBall,
+  sandbox_toy: drawGenericObject,
+}
+
+function getEntityDrawer(type) {
+  if (ENTITY_DRAWERS[type]) return ENTITY_DRAWERS[type]
+  const category = NOUN_CATEGORIES[type]
+  if (category === 'toy') return drawDollToy
+  if (category === 'instrument') return drawPiano
+  if (category === 'accessory') return (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#ffd54f')
+  if (category === 'clothing') return (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#7986cb')
+  if (category === 'fruit') return (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#ef5350', true)
+  if (category === 'vegetable') return (ctx, x, y, s) => drawColoredCircle(ctx, x, y, s, '#66bb6a', true)
+  if (category === 'food') return (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#ffb74d')
+  if (category === 'plant') return drawFlower
+  if (category === 'vehicle') return drawCar
+  if (category === 'object') return (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#bdbdbd')
+  if (category === 'animal') return drawDog
+  if (category === 'nature') return (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#81d4fa')
+  if (category === 'place') return (ctx, x, y, s) => drawGenericObject(ctx, x, y, s, '#a5d6a7')
+  return (ctx, x, y, s) => drawGenericObject(ctx, x, y, s)
 }
 
 function getMainEntityPosition(entity, setting, width, height) {
   if (entity === 'spider') {
     return { x: width * 0.72, y: height * 0.28, size: 120 }
+  }
+  if (['toothpaste', 'toothbrush', 'soap'].includes(entity)) {
+    return { x: width * 0.5, y: height * 0.56, size: 220 }
   }
   const isSeaCreature = ['whale', 'fish'].includes(entity) || setting === 'sea'
   return {
@@ -967,6 +1440,51 @@ function getMainEntityPosition(entity, setting, width, height) {
     y: height * (isSeaCreature ? 0.52 : 0.62),
     size: isSeaCreature ? 180 : 150,
   }
+}
+
+function drawBathroomHygieneScene(ctx, scene, width, height) {
+  ctx.fillStyle = '#eceff1'
+  ctx.fillRect(0, 0, width, height)
+
+  ctx.fillStyle = '#b0bec5'
+  ctx.fillRect(width * 0.18, height * 0.1, width * 0.64, height * 0.32)
+  ctx.strokeStyle = '#78909c'
+  ctx.lineWidth = 4
+  ctx.strokeRect(width * 0.18, height * 0.1, width * 0.64, height * 0.32)
+
+  ctx.fillStyle = '#cfd8dc'
+  ctx.fillRect(0, height * 0.46, width, height * 0.54)
+  ctx.strokeStyle = '#90a4ae'
+  ctx.beginPath()
+  ctx.moveTo(0, height * 0.46)
+  ctx.lineTo(width, height * 0.46)
+  ctx.stroke()
+
+  const types = scene.characters?.map((c) => c.type) ?? scene.entities ?? []
+  const hasToothpaste = types.includes('toothpaste')
+  const hasToothbrush = types.includes('toothbrush')
+  const hasSoap = types.includes('soap')
+
+  if (hasToothbrush && hasToothpaste) {
+    drawToothbrush(ctx, width * 0.32, height * 0.6, 170)
+    drawToothpaste(ctx, width * 0.68, height * 0.58, 200)
+  } else if (hasToothpaste) {
+    drawToothpaste(ctx, width * 0.5, height * 0.58, 240)
+  } else if (hasToothbrush) {
+    drawToothbrush(ctx, width * 0.5, height * 0.58, 200)
+  }
+  if (hasSoap) {
+    drawGenericObject(ctx, width * 0.78, height * 0.62, 100, '#e1f5fe')
+    ctx.fillStyle = '#455a64'
+    ctx.font = 'bold 18px sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('비누', width * 0.78, height * 0.62 + 6)
+  }
+
+  ctx.fillStyle = '#546e7a'
+  ctx.font = 'bold 26px sans-serif'
+  ctx.textAlign = 'center'
+  ctx.fillText('욕실', width * 0.5, height * 0.93)
 }
 
 function getSecondaryPositions(count, width, height) {
@@ -1033,7 +1551,7 @@ async function drawPhotosInScene(ctx, photoSrcs, scene, width, height) {
 }
 
 function drawEntityFacing(ctx, type, x, y, size, facingRight) {
-  const drawer = ENTITY_DRAWERS[type]
+  const drawer = getEntityDrawer(type)
   if (!drawer) return
   ctx.save()
   if (!facingRight) {
@@ -1063,6 +1581,60 @@ function drawFightEffects(ctx, x1, x2, y, intensity) {
   ctx.font = 'bold 32px sans-serif'
   ctx.textAlign = 'center'
   ctx.fillText(intensity === 'verbal' ? '💬' : '✨', midX, y - 24)
+
+  ctx.restore()
+}
+
+function drawExpressionOverlay(ctx, action, x, y, size) {
+  if (!action || !['smiling', 'laughing', 'crying', 'surprised', 'angry', 'scared', 'singing'].includes(action)) {
+    return
+  }
+
+  ctx.save()
+  const fx = x
+  const fy = y - size * 0.18
+  const mouthR = size * 0.1
+  const eyeOffset = size * 0.08
+
+  ctx.lineWidth = Math.max(2, size * 0.025)
+  ctx.strokeStyle = '#444'
+  ctx.fillStyle = '#444'
+
+  ctx.beginPath()
+  ctx.arc(fx - eyeOffset, fy - mouthR * 0.5, size * 0.025, 0, Math.PI * 2)
+  ctx.arc(fx + eyeOffset, fy - mouthR * 0.5, size * 0.025, 0, Math.PI * 2)
+  ctx.fill()
+
+  if (action === 'smiling') {
+    ctx.beginPath()
+    ctx.arc(fx, fy + mouthR * 0.2, mouthR, 0.15 * Math.PI, 0.85 * Math.PI)
+    ctx.stroke()
+  } else if (action === 'laughing' || action === 'singing') {
+    ctx.fillStyle = '#e85d7a'
+    ctx.beginPath()
+    ctx.ellipse(fx, fy + mouthR * 0.3, mouthR * 0.55, mouthR * 0.45, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.strokeStyle = '#444'
+    ctx.stroke()
+  } else if (action === 'crying') {
+    ctx.fillStyle = '#7ecbff'
+    ctx.beginPath()
+    ctx.ellipse(fx - eyeOffset, fy + mouthR * 0.2, size * 0.02, size * 0.04, 0, 0, Math.PI * 2)
+    ctx.ellipse(fx + eyeOffset, fy + mouthR * 0.2, size * 0.02, size * 0.04, 0, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.beginPath()
+    ctx.arc(fx, fy + mouthR * 0.5, mouthR * 0.7, 1.1 * Math.PI, 1.9 * Math.PI)
+    ctx.stroke()
+  } else if (action === 'surprised' || action === 'scared') {
+    ctx.beginPath()
+    ctx.arc(fx, fy + mouthR * 0.4, mouthR * 0.35, 0, Math.PI * 2)
+    ctx.stroke()
+  } else if (action === 'angry') {
+    ctx.beginPath()
+    ctx.moveTo(fx - mouthR, fy + mouthR * 0.8)
+    ctx.lineTo(fx + mouthR, fy + mouthR * 0.8)
+    ctx.stroke()
+  }
 
   ctx.restore()
 }
@@ -1134,11 +1706,187 @@ function drawBackgroundSetting(ctx, setting, width, height) {
   }
 }
 
+function drawSlide(ctx, x, y, size) {
+  ctx.save()
+
+  const platformW = size * 0.55
+  const platformH = size * 0.1
+  const platformX = x - size * 0.28
+  const platformY = y - size * 0.42
+
+  // 지지대
+  ctx.fillStyle = '#616161'
+  ctx.fillRect(x - size * 0.3, platformY + platformH, size * 0.08, size * 0.55)
+  ctx.fillRect(x + size * 0.18, y + size * 0.05, size * 0.08, size * 0.38)
+
+  // 미끄럼판 (밝은 주황·노랑)
+  ctx.fillStyle = '#ff9800'
+  ctx.beginPath()
+  ctx.moveTo(platformX, platformY + platformH * 0.5)
+  ctx.lineTo(x + size * 0.52, y + size * 0.42)
+  ctx.lineTo(x + size * 0.38, y + size * 0.52)
+  ctx.lineTo(platformX, platformY + platformH * 2.2)
+  ctx.closePath()
+  ctx.fill()
+  ctx.strokeStyle = '#e65100'
+  ctx.lineWidth = 4
+  ctx.stroke()
+
+  // 옆면 하이라이트
+  ctx.fillStyle = 'rgba(255,255,255,0.25)'
+  ctx.beginPath()
+  ctx.moveTo(platformX + size * 0.04, platformY + platformH)
+  ctx.lineTo(x + size * 0.38, y + size * 0.38)
+  ctx.lineTo(x + size * 0.32, y + size * 0.44)
+  ctx.lineTo(platformX + size * 0.04, platformY + platformH * 1.8)
+  ctx.closePath()
+  ctx.fill()
+
+  // 꼭대기 발판
+  ctx.fillStyle = '#ffeb3b'
+  ctx.fillRect(platformX, platformY, platformW, platformH)
+  ctx.strokeStyle = '#f57f17'
+  ctx.lineWidth = 3
+  ctx.strokeRect(platformX, platformY, platformW, platformH)
+
+  // 사다리
+  ctx.strokeStyle = '#424242'
+  ctx.lineWidth = 5
+  ctx.beginPath()
+  ctx.moveTo(platformX - size * 0.06, y + size * 0.48)
+  ctx.lineTo(platformX - size * 0.06, platformY)
+  ctx.moveTo(platformX + size * 0.02, y + size * 0.48)
+  ctx.lineTo(platformX + size * 0.02, platformY)
+  ctx.stroke()
+  ctx.lineWidth = 3
+  for (let i = 0; i < 5; i++) {
+    const ly = platformY + platformH + i * size * 0.09
+    ctx.beginPath()
+    ctx.moveTo(platformX - size * 0.06, ly)
+    ctx.lineTo(platformX + size * 0.02, ly)
+    ctx.stroke()
+  }
+
+  // 난간
+  ctx.strokeStyle = '#1565c0'
+  ctx.lineWidth = 4
+  ctx.beginPath()
+  ctx.moveTo(platformX, platformY)
+  ctx.lineTo(x + size * 0.48, y + size * 0.08)
+  ctx.stroke()
+
+  // 라벨
+  ctx.fillStyle = '#d84315'
+  ctx.font = `bold ${Math.max(14, size * 0.09)}px sans-serif`
+  ctx.textAlign = 'center'
+  ctx.fillText('미끄럼틀', x + size * 0.12, y + size * 0.62)
+
+  ctx.restore()
+}
+
+function drawAnimalsOnPlaygroundScene(ctx, scene, width, height) {
+  drawSky(ctx, scene.weather ?? 'sunny', width, height)
+  drawGround(ctx, 'park', scene.weather ?? 'sunny', width, height)
+  drawSun(ctx, width * 0.82, height * 0.12, 42)
+  drawTree(ctx, width * 0.08, height * 0.56, 80)
+  drawTree(ctx, width * 0.92, height * 0.54, 90)
+
+  const slideX = width * 0.52
+  const slideY = height * 0.5
+  const slideSize = Math.min(width, height) * 0.42
+
+  // 미끄럼틀을 먼저 크게 그림
+  drawSlide(ctx, slideX, slideY, slideSize)
+
+  const players = scene.characters?.filter((c) => c.role === 'player') ?? []
+  const playerPositions = {
+    shark: { x: slideX - slideSize * 0.05, y: slideY - slideSize * 0.38, size: 95 },
+    whale: { x: slideX + slideSize * 0.22, y: slideY + slideSize * 0.18, size: 110 },
+    default: [
+      { x: slideX - slideSize * 0.08, y: slideY - slideSize * 0.35, size: 100 },
+      { x: slideX + slideSize * 0.2, y: slideY + slideSize * 0.15, size: 110 },
+    ],
+  }
+
+  players.slice(0, 3).forEach((char, i) => {
+    const pos = playerPositions[char.type] ?? playerPositions.default[i] ?? playerPositions.default[0]
+    const drawer = getEntityDrawer(char.type)
+    drawer(ctx, pos.x, pos.y, pos.size)
+  })
+}
+
+function drawAnimalEatingFoodScene(ctx, scene, width, height) {
+  const eater = scene.characters?.find((c) => c.role === 'eater' || c.role === 'predator') ?? scene.characters?.[0]
+  const food = scene.characters?.find((c) => c.role === 'food') ?? scene.characters?.find((c) => isFoodEntity(c.type))
+  if (!eater || !food) return false
+
+  drawSky(ctx, scene.weather ?? 'sunny', width, height)
+  drawGround(ctx, scene.setting ?? 'park', scene.weather ?? 'sunny', width, height)
+  drawSun(ctx, width * 0.82, height * 0.12, 40)
+
+  const eaterDrawer = getEntityDrawer(eater.type)
+  const foodDrawer = getEntityDrawer(food.type)
+  const eaterSize = eater.type === 'ant' ? 90 : 130
+  const foodSize = 100
+
+  eaterDrawer(ctx, width * 0.38, height * 0.62, eaterSize)
+  foodDrawer(ctx, width * 0.62, height * 0.58, foodSize)
+  return true
+}
+
 export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
   ensureCanvasCompat(ctx)
   const antChar = scene.characters?.find((c) => c.type === 'ant')
   const antCount = antChar?.count ?? scene.count ?? 8
   const hasAnt = antChar || scene.entities?.includes('ant')
+
+  if (
+    scene.scenarioId === 'animal_eating_food' ||
+    (scene.action === 'eating' && scene.characters?.some((c) => c.role === 'food'))
+  ) {
+    if (drawAnimalEatingFoodScene(ctx, scene, width, height)) {
+      if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
+      ctx.strokeStyle = '#ff6b9d'
+      ctx.lineWidth = 6
+      ctx.strokeRect(12, 12, width - 24, height - 24)
+      return
+    }
+  }
+
+  if (scene.scenarioId === 'animals_on_playground' || scene.characters?.some((c) => c.role === 'playground')) {
+    drawAnimalsOnPlaygroundScene(ctx, scene, width, height)
+    if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
+    ctx.strokeStyle = '#ff6b9d'
+    ctx.lineWidth = 6
+    ctx.strokeRect(12, 12, width - 24, height - 24)
+    return
+  }
+
+  const hygieneTypes = new Set(['toothpaste', 'toothbrush'])
+  const sceneTypes = scene.characters?.map((c) => c.type) ?? scene.entities ?? []
+  if (
+    scene.scenarioId === 'bathroom_hygiene' ||
+    sceneTypes.some((t) => hygieneTypes.has(t))
+  ) {
+    drawBathroomHygieneScene(ctx, scene, width, height)
+    if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
+    ctx.strokeStyle = '#ff6b9d'
+    ctx.lineWidth = 6
+    ctx.strokeRect(12, 12, width - 24, height - 24)
+    return
+  }
+
+  const hasSlide =
+    scene.entities?.includes('slide') ||
+    scene.characters?.some((c) => c.type === 'slide')
+  if (hasSlide) {
+    drawAnimalsOnPlaygroundScene(ctx, scene, width, height)
+    if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
+    ctx.strokeStyle = '#ff6b9d'
+    ctx.lineWidth = 6
+    ctx.strokeRect(12, 12, width - 24, height - 24)
+    return
+  }
 
   if (scene.scenarioId === 'shark_eating_fish') {
     drawSharkEatingFishScene(ctx, scene, width, height)
@@ -1178,7 +1926,10 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
     return
   }
 
-  if (scene.scenarioId === 'ants_group' || scene.scenarioId === 'ants_picnic') {
+  if (
+    (scene.scenarioId === 'ants_group' || scene.scenarioId === 'ants_picnic') &&
+    !scene.characters?.some((c) => c.type !== 'ant')
+  ) {
     drawSky(ctx, scene.weather ?? 'sunny', width, height)
     drawGround(ctx, scene.setting ?? 'park', scene.weather ?? 'sunny', width, height)
     drawSun(ctx, width * 0.82, height * 0.12, 40)
@@ -1264,40 +2015,56 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
 
   const hasPhotos = photoSrcs.length > 0
 
-  if (hasAnt && scene.formation === 'line') {
+  const antOnly = hasAnt && !scene.characters?.some((c) => c.type !== 'ant')
+
+  if (antOnly && scene.formation === 'line') {
     drawAntsInLine(ctx, antCount, width, height, width * 0.1, height * 0.58, width * 0.06)
-  } else if (hasAnt) {
+  } else if (antOnly) {
     for (let i = 0; i < antCount; i++) {
       const x = width * (0.2 + (i % 3) * 0.25)
       const y = height * (0.55 + Math.floor(i / 3) * 0.1)
       drawAnt(ctx, x, y, 50, i % 2 === 0 ? 1 : -1)
     }
   } else if (scene.characters?.length > 0) {
+    const sceneAction = scene.action
     scene.characters.slice(0, 4).forEach((char, i) => {
-      const drawer = ENTITY_DRAWERS[char.type]
+      const drawer = getEntityDrawer(char.type)
       if (!drawer) return
       if (char.type === 'ant' && scene.formation === 'line') return
 
-      if (char.role === 'predator' && char.action === 'eating') {
-        drawer(ctx, width * 0.38, height * 0.45, char.type === 'shark' ? 160 : 130, false)
+      const expressAction = char.action || sceneAction
+
+      if (char.role === 'eater' && char.action === 'eating') {
+        const size = char.type === 'ant' ? 90 : 130
+        drawer(ctx, width * 0.38, height * 0.58, size)
+        drawExpressionOverlay(ctx, expressAction, width * 0.38, height * 0.58, size)
         return
       }
-      if (char.role === 'prey') {
+      if (char.role === 'food') {
+        drawer(ctx, width * 0.62, height * 0.55, 100)
+        return
+      }
+
+      if (char.role === 'predator' && char.action === 'eating') {
+        const size = char.type === 'shark' ? 160 : 130
+        drawer(ctx, width * 0.38, height * 0.45, size, false)
+        drawExpressionOverlay(ctx, expressAction, width * 0.38, height * 0.45, size)
+        return
+      }
+      if (char.role === 'prey' && !isFoodEntity(char.type)) {
         const drawFn = char.type === 'baby_fish' ? drawBabyFish : drawer
-        drawFn(ctx, width * 0.62, height * 0.52, char.type === 'baby_fish' ? 70 : 90)
+        const size = char.type === 'baby_fish' ? 70 : 90
+        drawFn(ctx, width * 0.62, height * 0.52, size)
+        drawExpressionOverlay(ctx, expressAction, width * 0.62, height * 0.52, size)
         return
       }
 
       if (char.role === 'fighter' || char.role === 'opponent') {
         const isLeft = char.role === 'fighter'
-        drawEntityFacing(
-          ctx,
-          char.type,
-          isLeft ? width * 0.28 : width * 0.72,
-          height * 0.62,
-          120,
-          isLeft
-        )
+        const cx = isLeft ? width * 0.28 : width * 0.72
+        const cy = height * 0.62
+        drawEntityFacing(ctx, char.type, cx, cy, 120, isLeft)
+        drawExpressionOverlay(ctx, expressAction, cx, cy, 120)
         return
       }
 
@@ -1306,7 +2073,9 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
         ? getMainEntityPosition(char.type, scene.setting, width, height)
         : getSecondaryPositions(scene.characters.length - 1, width, height)[i - 1] ??
           { x: width * 0.5, y: height * 0.7, size: 80 }
-      drawer(ctx, pos.x, pos.y, isMain ? pos.size : pos.size * 0.7)
+      const drawSize = isMain ? pos.size : pos.size * 0.7
+      drawer(ctx, pos.x, pos.y, drawSize)
+      drawExpressionOverlay(ctx, expressAction, pos.x, pos.y, drawSize)
     })
   } else {
     const entitiesToDraw = hasPhotos
@@ -1316,7 +2085,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
     if (entitiesToDraw.length > 0) {
       const mainEntity = entitiesToDraw[0]
       const mainPos = getMainEntityPosition(mainEntity, scene.setting, width, height)
-      const mainDrawer = ENTITY_DRAWERS[mainEntity]
+      const mainDrawer = getEntityDrawer(mainEntity)
       if (mainDrawer) {
         mainDrawer(ctx, mainPos.x, mainPos.y, mainPos.size)
       }
@@ -1324,7 +2093,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
       const secondary = entitiesToDraw.slice(1)
       const secondaryPositions = getSecondaryPositions(secondary.length, width, height)
       secondary.forEach((entity, i) => {
-        const drawer = ENTITY_DRAWERS[entity]
+        const drawer = getEntityDrawer(entity)
         if (drawer && secondaryPositions[i]) {
           drawer(ctx, secondaryPositions[i].x, secondaryPositions[i].y, secondaryPositions[i].size)
         }

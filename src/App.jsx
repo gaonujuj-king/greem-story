@@ -400,7 +400,6 @@ function App() {
             <MicrophoneButton
               onTextUpdate={handleTextUpdate}
               onListeningChange={handleListeningChange}
-              hasTextInStory={!!storyText.trim()}
             />
             <div className="action-buttons">
               <button

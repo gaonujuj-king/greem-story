@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
-import SpeechStatusPanel from './SpeechStatusPanel'
 
 const ERROR_MESSAGES = {
   'not-allowed':
@@ -14,17 +13,16 @@ const ERROR_MESSAGES = {
   'no-text-yet':
     '소리는 들리지만 글 변환이 안 됩니다. Wi-Fi 연결·Chrome 브라우저·크게 또박또박 말하기를 확인해 주세요.',
   'start-failed':
-    '시작 실패 — Chrome에서 http://localhost:5173 으로 열었는지 확인해 주세요.',
+    '녹음을 시작하지 못했어요. Chrome 또는 Edge에서 다시 시도해 주세요.',
   unsupported:
     'Chrome 또는 Edge 브라우저를 사용해 주세요.',
   'insecure-context':
-    '파일로 연 주소는 안 됩니다. npm run dev 후 http://localhost:5173 으로 열어 주세요.',
+    '마이크는 HTTPS 주소에서만 사용할 수 있어요.',
 }
 
 export default function MicrophoneButton({
   onTextUpdate,
   onListeningChange,
-  hasTextInStory,
   disabled,
 }) {
   const [speechError, setSpeechError] = useState(null)
@@ -43,9 +41,6 @@ export default function MicrophoneButton({
   const {
     isRecording,
     isSupported,
-    micLevel,
-    micPermission,
-    speechPhase,
     speechHint,
     toggleListening,
     startListening,
@@ -80,34 +75,13 @@ export default function MicrophoneButton({
   if (!isSupported) {
     return (
       <div className="mic-unsupported">
-        <p>Chrome 또는 Edge에서 http://localhost:5173 으로 열어 주세요.</p>
-        <SpeechStatusPanel
-          isRecording={false}
-          isSupported={false}
-          micLevel={0}
-          micPermission="denied"
-          lastHeard=""
-          hasTextInStory={hasTextInStory}
-          speechError="unsupported"
-        />
+        <p>Chrome 또는 Edge 브라우저를 사용해 주세요.</p>
       </div>
     )
   }
 
   return (
     <div className="mic-wrapper">
-      <SpeechStatusPanel
-        isRecording={isRecording}
-        isSupported={isSupported}
-        micLevel={micLevel}
-        micPermission={micPermission}
-        lastHeard={lastHeard}
-        hasTextInStory={hasTextInStory}
-        speechError={speechError}
-        speechPhase={speechPhase}
-        speechHint={speechHint}
-      />
-
       <button
         type="button"
         className={`mic-button ${isRecording ? 'listening' : ''}`}

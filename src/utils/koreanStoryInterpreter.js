@@ -34,8 +34,9 @@ export function extractJsonFromLLM(text) {
 
 const STORY_ANALYSIS_PROMPT = (text) =>
   `You are an expert at reading Korean children's stories and planning photorealistic photos. ` +
-  `Read EVERY Korean word — animals (거미=spider, 개미=ant, 구름=cloud), people, objects, ` +
-  `places, weather, and actions. Do not ignore nouns that are not animals. ` +
+  `Read EVERY Korean word — animals, plants, fruits, vegetables, food, toys, vehicles, nature, people. ` +
+  `Examples: 개미=ant, 피아노=piano, 인형=doll, 신발=shoe, 목걸이=necklace, 원피스=dress, 수박=watermelon, 치약=toothpaste, 칫솔=toothbrush. ` +
+  `Do not ignore nouns. Map each important Korean noun to an English type in characters or objects. ` +
   `Image must be SAFE and gentle for young children — no blood, gore, horror, or scary violence. ` +
   `Story: "${text}" ` +
   `If the story mentions 개미 (ants), characters MUST include type "ant". ` +
@@ -44,7 +45,7 @@ const STORY_ANALYSIS_PROMPT = (text) =>
   `"setting":"picnic|park|sea|forest|garden|house|school|city|farm|space|savanna|sky|mountain",` +
   `"weather":"sunny|rain|snow|night|sunset|cloudy",` +
   `"formation":"line|group|single",` +
-  `"action":"walking|playing|eating|chasing|sleeping|running|swimming|flying|reading|fighting|dancing",` +
+  `"action":"smiling|laughing|crying|angry|surprised|scared|singing|talking|hugging|waving|walking|playing|eating|chasing|sleeping|running|swimming|flying|reading|drawing|jumping|sitting|standing|hiding|waiting|fighting|dancing",` +
   `"conflictIntensity":"physical|verbal|null",` +
   `"fightOutcome":"ongoing|someone_won|someone_lost|null",` +
   `"mood":"happy|peaceful|exciting|cozy|playful",` +
