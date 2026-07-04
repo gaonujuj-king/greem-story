@@ -43,14 +43,14 @@ export function photoSizeScale(sizeId) {
   return PHOTO_SIZE_OPTIONS.find((o) => o.id === sizeId)?.scale ?? PHOTO_SIZE_OPTIONS[1].scale
 }
 
-export function stickerBoxSize(canvasSize, sizeId) {
+export function stickerBoxSize(canvasW, canvasH, sizeId) {
   const margin = 28
-  const area = canvasSize - margin * 2
-  return area * photoSizeScale(sizeId)
+  const base = Math.min(canvasW - margin * 2, canvasH - margin * 2)
+  return base * photoSizeScale(sizeId)
 }
 
-export function computeStickerDimensions(naturalW, naturalH, canvasSize, sizeId) {
-  const boxSize = stickerBoxSize(canvasSize, sizeId)
+export function computeStickerDimensions(naturalW, naturalH, canvasW, canvasH, sizeId) {
+  const boxSize = stickerBoxSize(canvasW, canvasH, sizeId)
   const scale = Math.min(boxSize / naturalW, boxSize / naturalH)
   return {
     w: naturalW * scale,
@@ -59,15 +59,16 @@ export function computeStickerDimensions(naturalW, naturalH, canvasSize, sizeId)
   }
 }
 
-export function computeStickerPlacement(naturalW, naturalH, canvasSize, sizeId, staggerIndex = 0) {
+export function computeStickerPlacement(naturalW, naturalH, canvasW, canvasH, sizeId, staggerIndex = 0) {
   const margin = 28
-  const area = canvasSize - margin * 2
-  const { w, h, boxSize } = computeStickerDimensions(naturalW, naturalH, canvasSize, sizeId)
+  const areaW = canvasW - margin * 2
+  const areaH = canvasH - margin * 2
+  const { w, h, boxSize } = computeStickerDimensions(naturalW, naturalH, canvasW, canvasH, sizeId)
   const stagger = staggerIndex % 4
   const shiftX = [0, 18, -18, 12][stagger]
   const shiftY = [0, 12, 18, -12][stagger]
-  const boxX = margin + shiftX + (area - boxSize) / 2
-  const boxY = margin + shiftY + (area - boxSize) / 2
+  const boxX = margin + shiftX + (areaW - boxSize) / 2
+  const boxY = margin + shiftY + (areaH - boxSize) / 2
   return {
     x: boxX + (boxSize - w) / 2,
     y: boxY + (boxSize - h) / 2,
@@ -76,8 +77,8 @@ export function computeStickerPlacement(naturalW, naturalH, canvasSize, sizeId, 
   }
 }
 
-export function resizeStickerAtCenter(sticker, canvasSize, sizeId) {
-  const { w, h } = computeStickerDimensions(sticker.naturalW, sticker.naturalH, canvasSize, sizeId)
+export function resizeStickerAtCenter(sticker, canvasW, canvasH, sizeId) {
+  const { w, h } = computeStickerDimensions(sticker.naturalW, sticker.naturalH, canvasW, canvasH, sizeId)
   const cx = sticker.x + sticker.w / 2
   const cy = sticker.y + sticker.h / 2
   return {
@@ -90,10 +91,10 @@ export function resizeStickerAtCenter(sticker, canvasSize, sizeId) {
   }
 }
 
-export function clampStickerPosition(sticker, canvasSize) {
+export function clampStickerPosition(sticker, canvasW, canvasH) {
   const pad = 8
-  const maxX = Math.max(pad, canvasSize - sticker.w - pad)
-  const maxY = Math.max(pad, canvasSize - sticker.h - pad)
+  const maxX = Math.max(pad, canvasW - sticker.w - pad)
+  const maxY = Math.max(pad, canvasH - sticker.h - pad)
   return {
     ...sticker,
     x: Math.min(Math.max(pad, sticker.x), maxX),
@@ -129,10 +130,10 @@ export function drawStickerOnContext(ctx, img, sticker, dpr) {
   ctx.restore()
 }
 
-export async function compositeFullScene(baseCanvas, drawCanvas, stickers, canvasSize, dpr) {
+export async function compositeFullScene(baseCanvas, drawCanvas, stickers, canvasW, canvasH, dpr) {
   const out = document.createElement('canvas')
-  out.width = canvasSize * dpr
-  out.height = canvasSize * dpr
+  out.width = canvasW * dpr
+  out.height = canvasH * dpr
   const ctx = out.getContext('2d')
   if (baseCanvas) ctx.drawImage(baseCanvas, 0, 0)
 
@@ -150,6 +151,6 @@ export async function compositeFullScene(baseCanvas, drawCanvas, stickers, canva
   return out
 }
 
-export async function compositeCanvasWithStickers(canvas, stickers, canvasSize, dpr) {
-  return compositeFullScene(null, canvas, stickers, canvasSize, dpr)
+export async function compositeCanvasWithStickers(canvas, stickers, canvasW, canvasH, dpr) {
+  return compositeFullScene(null, canvas, stickers, canvasW, canvasH, dpr)
 }

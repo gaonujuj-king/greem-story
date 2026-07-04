@@ -154,7 +154,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
   const [hasDrawing, setHasDrawing] = useState(false)
 
-  const [canvasSize, setCanvasSize] = useState(400)
+  const [canvasWidth, setCanvasWidth] = useState(560)
+  const [canvasHeight, setCanvasHeight] = useState(320)
 
   const [showClearAsk, setShowClearAsk] = useState(false)
 
@@ -227,14 +228,14 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
     (dpr) => {
       for (const canvas of [baseCanvasRef.current, canvasRef.current]) {
         if (!canvas) continue
-        canvas.width = canvasSize * dpr
-        canvas.height = canvasSize * dpr
-        canvas.style.width = `${canvasSize}px`
-        canvas.style.height = `${canvasSize}px`
+        canvas.width = canvasWidth * dpr
+        canvas.height = canvasHeight * dpr
+        canvas.style.width = `${canvasWidth}px`
+        canvas.style.height = `${canvasHeight}px`
         canvas.getContext('2d').setTransform(dpr, 0, 0, dpr, 0, 0)
       }
     },
-    [canvasSize]
+    [canvasWidth, canvasHeight]
   )
 
 
@@ -311,7 +312,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     if (!ctx) return
 
-    fillPaperBackground(ctx, canvasSize, canvasSize)
+    fillPaperBackground(ctx, canvasWidth, canvasHeight)
 
     if (bgPhotoRef.current) {
 
@@ -323,7 +324,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
         ctx.globalAlpha = 0.3
 
-        drawImageCover(ctx, img, canvasSize, canvasSize)
+        drawImageCover(ctx, img, canvasWidth, canvasHeight)
 
         ctx.restore()
 
@@ -335,7 +336,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     }
 
-  }, [getBaseCtx, fillPaperBackground, canvasSize])
+  }, [getBaseCtx, fillPaperBackground, canvasWidth, canvasHeight])
 
 
 
@@ -349,7 +350,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     await redrawBase()
 
-    drawCtx.clearRect(0, 0, canvasSize, canvasSize)
+    drawCtx.clearRect(0, 0, canvasWidth, canvasHeight)
 
     pushHistory()
 
@@ -378,10 +379,12 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     const w = Math.floor(availW || 0)
     const h = Math.floor(Math.max(availH, wrap.clientHeight || 0))
-    if (w < 80 || h < 80) return
+    if (w < 120 || h < 80) return
 
-    const size = Math.max(180, Math.floor(Math.min(w, h)))
-    setCanvasSize((prev) => (prev === size ? prev : size))
+    const cw = Math.max(240, w)
+    const ch = Math.max(140, h)
+    setCanvasWidth((prev) => (prev === cw ? prev : cw))
+    setCanvasHeight((prev) => (prev === ch ? prev : ch))
   }, [])
 
   useEffect(() => {
@@ -432,7 +435,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     setupCanvasSurface()
 
-  }, [canvasSize, setupCanvasPair, setupCanvasSurface])
+  }, [canvasWidth, canvasHeight, setupCanvasPair, setupCanvasSurface])
 
 
 
@@ -848,7 +851,9 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
           img.naturalHeight,
 
-          canvasSize,
+          canvasWidth,
+
+          canvasHeight,
 
           sizeId,
 
@@ -904,7 +909,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     },
 
-    [photoSize, canvasSize, markDirty, showToast]
+    [photoSize, canvasWidth, canvasHeight, markDirty, showToast]
 
   )
 
@@ -920,7 +925,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     addPhotoSticker(pending.src, pending)
 
-  }, [canvasSize, addPhotoSticker])
+  }, [canvasWidth, canvasHeight, addPhotoSticker])
 
 
 
@@ -936,7 +941,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
           prev.map((s) =>
 
-            s.id === selectedStickerId ? clampStickerPosition(resizeStickerAtCenter(s, canvasSize, sizeId), canvasSize) : s
+            s.id === selectedStickerId ? clampStickerPosition(resizeStickerAtCenter(s, canvasWidth, canvasHeight, sizeId), canvasWidth, canvasHeight) : s
 
           )
 
@@ -950,7 +955,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     },
 
-    [tab, selectedStickerId, canvasSize, markDirty, showToast]
+    [tab, selectedStickerId, canvasWidth, canvasHeight, markDirty, showToast]
 
   )
 
@@ -1076,7 +1081,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
             },
 
-            canvasSize
+            canvasWidth,
+            canvasHeight
 
           )
 
@@ -1086,7 +1092,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     },
 
-    [tab, getPoint, canvasSize]
+    [tab, getPoint, canvasWidth, canvasHeight]
 
   )
 
@@ -1158,7 +1164,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
         await redrawBase()
 
-        ctx.drawImage(img, 0, 0, canvasSize, canvasSize)
+        ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight)
 
         pushHistory()
 
@@ -1182,7 +1188,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
     }
 
-  }, [restoreBlob, getCtx, canvasSize, redrawBase, pushHistory, notifyChange, setupCanvasSurface, onRestored])
+  }, [restoreBlob, getCtx, canvasWidth, canvasHeight, redrawBase, pushHistory, notifyChange, setupCanvasSurface, onRestored])
 
 
 
@@ -1206,7 +1212,8 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
           baseCanvas,
           drawCanvas,
           photoStickers,
-          canvasSize,
+          canvasWidth,
+          canvasHeight,
           dpr
         )
 
@@ -1242,7 +1249,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
           await redrawBase()
 
-          ctx.drawImage(img, 0, 0, canvasSize, canvasSize)
+          ctx.drawImage(img, 0, 0, canvasWidth, canvasHeight)
 
           pushHistory()
 
@@ -1274,7 +1281,9 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
 
       getCtx,
 
-      canvasSize,
+      canvasWidth,
+
+      canvasHeight,
 
       resetSurface,
 
@@ -1353,7 +1362,7 @@ const KidDrawCanvas = forwardRef(function KidDrawCanvas(
         <div
           className="kid-draw-stage"
           ref={stageRef}
-          style={{ width: canvasSize, height: canvasSize }}
+          style={{ width: canvasWidth, height: canvasHeight }}
         >
 
           <canvas ref={baseCanvasRef} className="kid-draw-base-canvas" aria-hidden="true" />
