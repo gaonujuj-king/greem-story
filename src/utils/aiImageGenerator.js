@@ -1,5 +1,6 @@
 import { buildRealisticImagePrompt } from './realisticPromptBuilder'
 import { finalizeImagePrompt } from './childFriendlyPrompt'
+import { isLocalOnlyApp } from '../config/privacy'
 
 function hashString(str) {
   let hash = 0
@@ -77,6 +78,10 @@ async function imageUrlToBlob(url) {
 }
 
 export async function generateAIStoryImage(scene, originalText) {
+  if (isLocalOnlyApp()) {
+    throw new Error('로컬 전용 모드에서는 외부 AI 그림을 사용하지 않습니다')
+  }
+
   const models = ['flux', 'turbo']
 
   for (const model of models) {

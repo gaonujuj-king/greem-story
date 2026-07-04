@@ -458,6 +458,15 @@
   justify-content: center;
 }
 
+.action-buttons-main {
+  width: 100%;
+}
+
+.guide-privacy {
+  background: #eef8ff;
+  border-color: #6eb5ff;
+}
+
 .btn-generate,
 .btn-save,
 .btn-reset {

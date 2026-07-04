@@ -1,7 +1,7 @@
 {
   "name": "이야기 그림전환",
   "short_name": "이야기그림",
-  "description": "아이들의 이야기와 사진을 태블릿에만 저장하는 앱",
+  "description": "아이들의 이야기와 사진을 이 기기에만 저장하는 프라이버시 우선 앱",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#fff8f0",

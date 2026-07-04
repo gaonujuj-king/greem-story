@@ -1,5 +1,4 @@
 import { useState, useCallback, useRef, useEffect, useDeferredValue } from 'react'
-import MicrophoneButton from './components/MicrophoneButton'
 import StoryPanel from './components/StoryPanel'
 import ImagePanel from './components/ImagePanel'
 import PhotoUpload from './components/PhotoUpload'
@@ -14,20 +13,13 @@ import {
   clearDraft,
   requestPersistentStorage,
 } from './utils/storage'
-import {
-  advanceSpeechSession,
-  composeStoryFromSpeechSession,
-  getInterimTail,
-} from './utils/speechTextMerge'
 import './App.css'
 
 function App() {
   const [storyText, setStoryText] = useState('')
-  const [interimText, setInterimText] = useState('')
   const [imageUrl, setImageUrl] = useState(null)
   const [generatedImageBlob, setGeneratedImageBlob] = useState(null)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [isListening, setIsListening] = useState(false)
   const [photos, setPhotos] = useState([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
@@ -90,81 +82,14 @@ function App() {
     }
   }, [storyText, isLoaded, clearCurrentImage])
 
-  const interimTextRef = useRef('')
-  const storyTextRef = useRef(storyText)
-  const speechSessionRef = useRef({ baseText: '', cumulative: '' })
-
-  useEffect(() => {
-    storyTextRef.current = storyText
-  }, [storyText])
-
-  useEffect(() => {
-    interimTextRef.current = interimText
-  }, [interimText])
-
-  const applySpeechToStory = useCallback(
-    (incomingChunk) => {
-      const { session, changed } = advanceSpeechSession(speechSessionRef.current, incomingChunk)
-      if (!changed) return false
-
-      speechSessionRef.current = session
-      const newText = composeStoryFromSpeechSession(session)
-      if (newText.trim() !== lastGeneratedTextRef.current) {
-        clearCurrentImage()
-        lastGeneratedTextRef.current = ''
-      }
-      setStoryText(newText)
-      return true
-    },
-    [clearCurrentImage]
-  )
-
-  const flushInterimToStory = useCallback(() => {
-    const interim = interimTextRef.current.trim()
-    if (!interim) return
-
-    const tail = getInterimTail(speechSessionRef.current.cumulative, interim)
-    const toCommit = tail || interim
-    applySpeechToStory(toCommit)
-    setInterimText('')
-  }, [applySpeechToStory])
-
-  const handleListeningChange = useCallback(
-    (listening) => {
-      if (listening) {
-        speechSessionRef.current = {
-          baseText: storyTextRef.current,
-          cumulative: '',
-        }
-        setInterimText('')
-      } else {
-        flushInterimToStory()
-      }
-      setIsListening(listening)
-    },
-    [flushInterimToStory]
-  )
-
-  const handleTextUpdate = useCallback(({ final, interim }) => {
-    if (final?.trim()) {
-      applySpeechToStory(final.trim())
-    }
-    const tail = getInterimTail(speechSessionRef.current.cumulative, interim ?? '')
-    setInterimText(tail)
-  }, [applySpeechToStory])
-
   const imageErrorRetriedRef = useRef(false)
 
   const getStoryInputText = useCallback(() => {
-    const base = storyText
-    const live = interimText.trim()
-      ? base + (base && !base.endsWith(' ') ? ' ' : '') + interimText.trim()
-      : base
-    if (live.trim()) return live
+    if (storyText.trim()) return storyText
     const fromRef = storyInputRef.current?.getValue?.()
     if (fromRef?.trim()) return fromRef
-    return base
-  }, [storyText, interimText])
+    return storyText
+  }, [storyText])
 
   const triggerImageGeneration = useCallback(
     async (text, photoList) => {
@@ -181,11 +106,13 @@ function App() {
       setIsGenerating(true)
       const photoSrcs = photoList.map((p) => p.src)
       const hasPhoto = photoSrcs.length > 0
-      setSaveStatus(hasPhoto ? '📷 올린 사진으로 장면 만드는 중...' : '📖 이야기를 읽고 사진을 만드는 중... (최대 1분)')
+      setSaveStatus(
+        hasPhoto ? '📷 이 기기에서 사진 장면 그리는 중...' : '🎨 이 기기에서 그림 그리는 중...'
+      )
       try {
         const result = await generateLocalStoryImage(trimmed, photoSrcs)
 
-        if (!result?.blob && !result?.directUrl) {
+        if (!result?.blob) {
           setSaveStatus('⚠️ 그림을 표시할 수 없어요 — 다시 시도해 주세요')
           setTimeout(() => setSaveStatus(''), 3000)
           return
@@ -194,30 +121,15 @@ function App() {
         if (imageUrlRef.current?.startsWith('blob:')) {
           URL.revokeObjectURL(imageUrlRef.current)
         }
-        const url = result.directUrl ?? blobToObjectUrl(result.blob)
+        const url = blobToObjectUrl(result.blob)
         imageUrlRef.current = url
         setImageUrl(url)
-
-        let blob = result.blob ?? null
-        if (!blob?.size && url) {
-          try {
-            blob = await resolveImageBlob({ blob: null, url })
-          } catch {
-            // ensureSaveableBlob에서 이미 blob 있어야 함
-          }
-        }
-        if (!blob?.size) {
-          const fallback = await generateExportableImageBlob(trimmed, photoSrcs)
-          blob = fallback?.blob ?? null
-        }
-        setGeneratedImageBlob(blob)
+        setGeneratedImageBlob(result.blob)
         lastGeneratedTextRef.current = trimmed
         imageErrorRetriedRef.current = false
-        setSaveStatus(result.method === 'photo'
-          ? '✅ 사진 기반 장면 완성!'
-          : result.method === 'ai'
-            ? '✅ 사진 완성!'
-            : '✅ 그림 완성! (AI 연결 실패, 그림으로 대체)')
+        setSaveStatus(
+          result.method === 'photo' ? '✅ 사진 기반 장면 완성!' : '✅ 그림 완성!'
+        )
         setTimeout(() => setSaveStatus(''), 2500)
       } catch (err) {
         console.error('그림 생성 실패:', err)
@@ -245,7 +157,6 @@ function App() {
 
   const handleReset = async () => {
     setStoryText('')
-    setInterimText('')
     clearCurrentImage()
     lastGeneratedTextRef.current = ''
     setPhotos([])
@@ -256,16 +167,15 @@ function App() {
   const deferredStoryText = useDeferredValue(storyText)
 
   const handleManualGenerate = useCallback(() => {
-    const text = getStoryInputText()
-    const fullText = (text + interimText).trim()
-    if (!fullText) {
+    const text = getStoryInputText().trim()
+    if (!text) {
       setSaveStatus('⚠️ 이야기를 입력한 뒤 그림 그리기를 눌러 주세요')
       setTimeout(() => setSaveStatus(''), 2500)
       return
     }
     if (text !== storyText) setStoryText(text)
-    triggerImageGeneration(fullText, photos)
-  }, [getStoryInputText, interimText, storyText, photos, triggerImageGeneration])
+    triggerImageGeneration(text, photos)
+  }, [getStoryInputText, storyText, photos, triggerImageGeneration])
 
   const handleSaveToGallery = async () => {
     const text = getStoryInputText()
@@ -388,13 +298,13 @@ function App() {
       {showGuide && <InstallGuide onClose={() => setShowGuide(false)} />}
       <header className="app-header">
         <h1>✨ 이야기 그림전환 ✨</h1>
-        <p className="subtitle">사실적인 AI 사진 · 저장한 것만 보관함에 남아요</p>
+        <p className="subtitle">🔒 이 기기에만 저장 · 외부로 데이터를 보내지 않아요</p>
         <div className="header-actions">
           <button className="btn-gallery" onClick={() => setView('gallery')}>
             📚 내 보관함 ({savedStories.length})
           </button>
           <button className="btn-help" onClick={() => setShowGuide(true)}>
-            📱 설치 방법
+            📱 설치·개인정보
           </button>
           {saveStatus && <span className="save-status">{saveStatus}</span>}
         </div>
@@ -413,16 +323,10 @@ function App() {
           <StoryPanel
             ref={storyInputRef}
             storyText={storyText}
-            interimText={interimText}
-            isListening={isListening}
             onTextChange={handleStoryTextChange}
           />
           <div className="controls">
-            <MicrophoneButton
-              onTextUpdate={handleTextUpdate}
-              onListeningChange={handleListeningChange}
-            />
-            <div className="action-buttons">
+            <div className="action-buttons action-buttons-main">
               <button
                 type="button"
                 className="btn-generate"
@@ -434,7 +338,7 @@ function App() {
                 type="button"
                 className="btn-save"
                 onClick={handleSaveToGallery}
-                disabled={!storyText.trim() && !interimText.trim() && !isGenerating}
+                disabled={!storyText.trim() && !isGenerating}
               >
                 📚 보관함에 저장
               </button>
@@ -458,7 +362,10 @@ function App() {
       </main>
 
       <footer className="app-footer">
-        <p>📷 AI가 이야기에 맞는 사실적인 사진을 생성합니다 · 📚 저장한 이야기만 보관함에 남아요</p>
+        <p>
+          🔒 이야기·사진·그림은 모두 이 태블릿 안에서만 처리됩니다 · 인터넷 없이도 그림을 그릴 수
+          있어요
+        </p>
       </footer>
     </div>
   )

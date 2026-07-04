@@ -37,8 +37,8 @@ export default function ImagePanel({
               <span>🎨</span>
               <span>✨</span>
             </div>
-            <p>사실적인 사진을 생성하는 중...</p>
-            <p className="image-loading-hint">자연스러운 사진 스타일 · 아이 친화적 (최대 1분 · 인터넷 필요)</p>
+            <p>이 기기에서 그림을 그리는 중...</p>
+            <p className="image-loading-hint">인터넷 없이도 동작 · 데이터는 밖으로 나가지 않아요</p>
           </div>
         ) : imageUrl ? (
           <div className="generated-result">
@@ -51,17 +51,15 @@ export default function ImagePanel({
                 onError={onImageError}
               />
             </div>
-            {sceneCaption && (
-              <p className="scene-caption">🎯 {sceneCaption}</p>
-            )}
+            {sceneCaption && <p className="scene-caption">🎯 {sceneCaption}</p>}
           </div>
         ) : (
           <div className="image-placeholder">
             <span className="image-placeholder-icon">🌈</span>
             <p>
               {storyText
-                ? '이야기 내용을 분석해서 그림을 그릴게요!'
-                : '이야기를 쓰거나 말하면 내용에 맞는 그림이 그려져요!'}
+                ? '이야기 내용을 읽고 이 기기에서 그림을 그릴게요!'
+                : '이야기를 쓰고 🎨 그림 그리기를 눌러 보세요!'}
             </p>
           </div>
         )}

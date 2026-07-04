@@ -1,5 +1,6 @@
 import { finalizeImagePrompt } from './childFriendlyPrompt'
 import { hasUnrecognizedNouns, findNounMatchesInText } from './koreanNounDictionary'
+import { isLocalOnlyApp } from '../config/privacy'
 
 const TEXT_API = [
   (prompt) => `https://text.pollinations.ai/${encodeURIComponent(prompt)}`,
@@ -7,6 +8,8 @@ const TEXT_API = [
 ]
 
 export async function callTextLLM(prompt, timeoutMs = 15000) {
+  if (isLocalOnlyApp()) return null
+
   for (const buildUrl of TEXT_API) {
     try {
       const response = await fetch(buildUrl(prompt), { signal: AbortSignal.timeout(timeoutMs) })

@@ -2,9 +2,8 @@ import { parseKoreanStory, SUBJECT_KOREAN as SEMANTIC_KOREAN } from './storySema
 import { KOREAN_NOUN_LABELS, buildLexiconTypeMap, getActionLabelKo, findNounMatchesInText } from './koreanNounDictionary'
 import { buildRealisticImagePrompt } from './realisticPromptBuilder'
 import { finalizeImagePrompt, softenSceneDescription } from './childFriendlyPrompt'
+import { isLocalOnlyApp } from '../config/privacy'
 import {
-  analyzeKoreanStoryWithAI,
-  generateDirectImagePromptFromKorean,
   isWeakLexicalAnalysis,
 } from './koreanStoryInterpreter'
 
@@ -180,11 +179,9 @@ function analysisToScene(analysis) {
 }
 
 async function callStoryLLM(text) {
+  if (isLocalOnlyApp()) return null
+  const { analyzeKoreanStoryWithAI } = await import('./koreanStoryInterpreter')
   return analyzeKoreanStoryWithAI(text)
-}
-
-function analyzeOffline(text) {
-  return parseKoreanStory(text)
 }
 
 function normalizeLLMResult(raw, originalText) {
@@ -369,14 +366,15 @@ export async function analyzeStory(text) {
   if (!trimmed) return null
 
   let semantic = parseKoreanStory(trimmed)
-  const lexicalWeak = isWeakLexicalAnalysis(semantic, trimmed)
 
-  if (navigator.onLine) {
+  if (!isLocalOnlyApp() && navigator.onLine) {
+    const lexicalWeak = isWeakLexicalAnalysis(semantic, trimmed)
     try {
       const llmRaw = await callStoryLLM(trimmed)
       if (llmRaw) {
         semantic = mergeLLMIntoSemantic(semantic, llmRaw, trimmed, lexicalWeak)
       } else if (lexicalWeak) {
+        const { generateDirectImagePromptFromKorean } = await import('./koreanStoryInterpreter')
         const directPrompt = await generateDirectImagePromptFromKorean(trimmed)
         if (directPrompt) {
           semantic.imagePrompt = directPrompt
@@ -384,8 +382,8 @@ export async function analyzeStory(text) {
           semantic.fromLLM = true
         }
       }
-    } catch (err) {
-      console.warn('[이야기 분석] AI 분석 실패, 오프라인 분석 사용:', err)
+    } catch {
+      // 로컬 분석으로 계속
     }
   }
 
@@ -415,13 +413,14 @@ export async function analyzeStory(text) {
 
   semantic.sceneDescription = softenSceneDescription(semantic.sceneDescription, semantic)
 
-  console.log('[이야기 분석] 결과:', semantic)
   return analysisToScene(enrichWithDictionaryEntities(semantic, trimmed))
 }
 
 export function analyzeStorySync(text) {
-  const semantic = parseKoreanStory(text.trim())
-  return analysisToScene(semantic)
+  const trimmed = text.trim()
+  if (!trimmed) return null
+  const semantic = parseKoreanStory(trimmed)
+  return analysisToScene(enrichWithDictionaryEntities(semantic, trimmed))
 }
 
 export function getSceneCaption(scene) {
