@@ -53,6 +53,7 @@ async function serializePhotos(photos) {
       id: photo.id,
       blob: photo.blob ?? (await dataUrlToBlob(photo.src)),
       name: photo.name || 'photo',
+      noBg: Boolean(photo.noBg),
     }))
   )
 }
@@ -63,6 +64,7 @@ async function deserializePhotos(photos) {
     src: URL.createObjectURL(photo.blob),
     blob: photo.blob,
     name: photo.name,
+    noBg: Boolean(photo.noBg),
   }))
 }
 

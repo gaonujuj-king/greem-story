@@ -28,8 +28,7 @@ export default function InstallGuide({ onClose }) {
               직접 써 주세요.
             </li>
             <li>
-              <strong>그림 방식</strong> — 사실적 AI 사진 대신, 이 기기 안에서 그리는 일러스트
-              그림을 사용합니다.
+              <strong>직접 그리기</strong> — 아이가 펜·선·원·네모로 직접 그림을 창작합니다.
             </li>
             <li>
               브라우저 「인터넷 사용 기록 삭제」를 하면 저장된 이야기가 지워질 수 있어요.
@@ -69,6 +68,17 @@ export default function InstallGuide({ onClose }) {
             </li>
             <li><strong>「설치」</strong>를 누르면 시작 메뉴에 추가됩니다.</li>
           </ol>
+        </section>
+
+        <section className="guide-section guide-tips">
+          <h3>🖍️ 그림 그리는 방법</h3>
+          <ul>
+            <li><strong>그리기</strong> — ✏️ 펜 · 🌈 무지개 · 🪣 채우기 · 🧽 지우개</li>
+            <li><strong>스티커</strong> — ⭐ 별 · ❤️ 하트 · 🐰 토끼 등, 도화지를 눌러 붙여요</li>
+            <li><strong>도형</strong> — 선·원·네모·세모·별·하트·마름모·화살·구름·육각형</li>
+            <li>색을 고른 뒤, 굵기를 바꿀 수 있어요</li>
+            <li>사진을 올리면 「📷 사진 배경」으로 깔고 그 위에 그릴 수 있어요</li>
+          </ul>
         </section>
 
         <section className="guide-section guide-tips">

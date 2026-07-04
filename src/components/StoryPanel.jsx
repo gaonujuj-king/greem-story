@@ -35,8 +35,8 @@ const StoryPanel = forwardRef(function StoryPanel({ storyText, onTextChange }, r
           value={storyText}
           onChange={syncValue}
           onInput={syncValue}
-          placeholder="⌨️ 여기를 눌러 키보드로 이야기를 써 보세요! (외부로 전송되지 않아요)"
-          rows={8}
+          placeholder="⌨️ 이야기를 써 보세요! (오른쪽 도화지에 그림도 그릴 수 있어요)"
+          rows={3}
           spellCheck={false}
           autoComplete="off"
           autoCorrect="off"
@@ -44,7 +44,7 @@ const StoryPanel = forwardRef(function StoryPanel({ storyText, onTextChange }, r
           enterKeyHint="done"
           aria-label="이야기 입력"
         />
-        <p className="typing-hint">🔒 입력한 글은 이 기기에서만 분석·저장됩니다</p>
+        <p className="typing-hint">🔒 글과 그림은 이 기기에만 저장돼요</p>
       </div>
     </div>
   )

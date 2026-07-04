@@ -1,4 +1,10 @@
-export default function PhotoUpload({ photos, onAddPhoto, onRemovePhoto }) {
+import { useState } from 'react'
+import { removePhotoBackground } from '../utils/photoEditor'
+
+export default function PhotoUpload({ photos, onAddPhoto, onRemovePhoto, onPhotoToCanvas, onUpdatePhoto }) {
+  const [busyId, setBusyId] = useState(null)
+  const [progress, setProgress] = useState(0)
+
   const handleFileChange = (e) => {
     const files = Array.from(e.target.files || [])
     files.forEach((file) => {
@@ -16,6 +22,22 @@ export default function PhotoUpload({ photos, onAddPhoto, onRemovePhoto }) {
     e.target.value = ''
   }
 
+  const handleRemoveBackground = async (photo) => {
+    if (busyId) return
+    setBusyId(photo.id)
+    setProgress(0)
+    try {
+      const result = await removePhotoBackground(photo.src, setProgress)
+      onUpdatePhoto?.(photo.id, result)
+    } catch (err) {
+      console.warn('배경 제거 실패:', err)
+      window.alert('배경을 지우지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setBusyId(null)
+      setProgress(0)
+    }
+  }
+
   return (
     <div className="photo-section">
       <div className="photo-header">
@@ -30,12 +52,40 @@ export default function PhotoUpload({ photos, onAddPhoto, onRemovePhoto }) {
           </div>
         ) : (
           photos.map((photo) => (
-            <div key={photo.id} className="photo-item">
+            <div key={photo.id} className={`photo-item ${photo.noBg ? 'no-bg' : ''}`}>
               <img src={photo.src} alt={photo.name || '업로드한 사진'} />
+              {busyId === photo.id && (
+                <div className="photo-busy">
+                  <span>✂️ 배경 지우는 중…</span>
+                  <span>{progress}%</span>
+                </div>
+              )}
+              <div className="photo-item-actions">
+                <button
+                  type="button"
+                  className="photo-action-btn canvas"
+                  onClick={() => onPhotoToCanvas?.(photo)}
+                  disabled={Boolean(busyId)}
+                >
+                  🖍️ 그림판
+                </button>
+                {!photo.noBg && (
+                  <button
+                    type="button"
+                    className="photo-action-btn cutout"
+                    onClick={() => handleRemoveBackground(photo)}
+                    disabled={Boolean(busyId)}
+                  >
+                    ✂️ 배경 지우기
+                  </button>
+                )}
+              </div>
+              {photo.noBg && <span className="photo-no-bg-badge">배경 없음</span>}
               <button
                 className="photo-remove"
                 onClick={() => onRemovePhoto(photo.id)}
                 aria-label="사진 삭제"
+                disabled={Boolean(busyId)}
               >
                 ✕
               </button>
@@ -45,7 +95,7 @@ export default function PhotoUpload({ photos, onAddPhoto, onRemovePhoto }) {
       </div>
 
       <p className="photo-guide-text">
-        올린 사진을 바탕으로 이야기를 쓰면, 사진 속 주인공이 그 장면을 연출해요
+        사진을 올리면 그림판에 들어가요 · 📷 사진 탭에서 옮기기·크기·회전
       </p>
 
       <label className="photo-add-btn photo-add-btn-block">
@@ -56,6 +106,7 @@ export default function PhotoUpload({ photos, onAddPhoto, onRemovePhoto }) {
           multiple
           onChange={handleFileChange}
           hidden
+          disabled={Boolean(busyId)}
         />
         <span>+ 사진 추가</span>
       </label>

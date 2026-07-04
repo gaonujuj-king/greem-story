@@ -1,10 +1,10 @@
-import { useState, useCallback, useRef, useEffect, useDeferredValue } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import StoryPanel from './components/StoryPanel'
-import ImagePanel from './components/ImagePanel'
+import KidDrawCanvas from './components/KidDrawCanvas'
 import PhotoUpload from './components/PhotoUpload'
 import SavedGallery from './components/SavedGallery'
 import InstallGuide from './components/InstallGuide'
-import { generateLocalStoryImage, generateExportableImageBlob, blobToObjectUrl } from './utils/localImageGenerator'
+import { blobToObjectUrl } from './utils/localImageGenerator'
 import { exportStoryBundle, resolveImageBlob, getExportStatusMessage } from './utils/exportFile'
 import {
   saveStoryToGallery,
@@ -17,20 +17,17 @@ import './App.css'
 
 function App() {
   const [storyText, setStoryText] = useState('')
-  const [imageUrl, setImageUrl] = useState(null)
-  const [generatedImageBlob, setGeneratedImageBlob] = useState(null)
-  const [isGenerating, setIsGenerating] = useState(false)
   const [photos, setPhotos] = useState([])
   const [isLoaded, setIsLoaded] = useState(false)
   const [saveStatus, setSaveStatus] = useState('')
   const [view, setView] = useState('create')
   const [savedStories, setSavedStories] = useState([])
   const [showGuide, setShowGuide] = useState(false)
+  const [hasDrawing, setHasDrawing] = useState(false)
+  const [restoreCanvasBlob, setRestoreCanvasBlob] = useState(null)
 
-  const lastGeneratedTextRef = useRef('')
-  const imageUrlRef = useRef(null)
   const storyInputRef = useRef(null)
-  const isGeneratingRef = useRef(false)
+  const drawCanvasRef = useRef(null)
 
   useEffect(() => {
     async function init() {
@@ -49,40 +46,9 @@ function App() {
     init()
   }, [])
 
-  const clearCurrentImage = useCallback(() => {
-    if (imageUrlRef.current) {
-      URL.revokeObjectURL(imageUrlRef.current)
-      imageUrlRef.current = null
-    }
-    setImageUrl(null)
-    setGeneratedImageBlob(null)
+  const handleStoryTextChange = useCallback((newText) => {
+    setStoryText(newText)
   }, [])
-
-  const handleStoryTextChange = useCallback(
-    (newText) => {
-      if (isGeneratingRef.current) {
-        setStoryText(newText)
-        return
-      }
-      const trimmed = newText.trim()
-      if (trimmed !== lastGeneratedTextRef.current) {
-        clearCurrentImage()
-        lastGeneratedTextRef.current = ''
-      }
-      setStoryText(newText)
-    },
-    [clearCurrentImage]
-  )
-
-  useEffect(() => {
-    if (!isLoaded) return
-    if (!storyText.trim()) {
-      clearCurrentImage()
-      lastGeneratedTextRef.current = ''
-    }
-  }, [storyText, isLoaded, clearCurrentImage])
-
-  const imageErrorRetriedRef = useRef(false)
 
   const getStoryInputText = useCallback(() => {
     if (storyText.trim()) return storyText
@@ -91,105 +57,50 @@ function App() {
     return storyText
   }, [storyText])
 
-  const triggerImageGeneration = useCallback(
-    async (text, photoList) => {
-      const trimmed = (text ?? '').trim()
-      if (!trimmed) {
-        setSaveStatus('⚠️ 이야기를 먼저 입력해 주세요')
-        setTimeout(() => setSaveStatus(''), 2500)
-        return
-      }
-
-      if (isGeneratingRef.current) return
-
-      isGeneratingRef.current = true
-      setIsGenerating(true)
-      const photoSrcs = photoList.map((p) => p.src)
-      const hasPhoto = photoSrcs.length > 0
-      setSaveStatus(
-        hasPhoto ? '📷 이 기기에서 사진 장면 그리는 중...' : '🎨 이 기기에서 그림 그리는 중...'
-      )
-      try {
-        const result = await generateLocalStoryImage(trimmed, photoSrcs)
-
-        if (!result?.blob) {
-          setSaveStatus('⚠️ 그림을 표시할 수 없어요 — 다시 시도해 주세요')
-          setTimeout(() => setSaveStatus(''), 3000)
-          return
-        }
-
-        if (imageUrlRef.current?.startsWith('blob:')) {
-          URL.revokeObjectURL(imageUrlRef.current)
-        }
-        const url = blobToObjectUrl(result.blob)
-        imageUrlRef.current = url
-        setImageUrl(url)
-        setGeneratedImageBlob(result.blob)
-        lastGeneratedTextRef.current = trimmed
-        imageErrorRetriedRef.current = false
-        setSaveStatus(
-          result.method === 'photo' ? '✅ 사진 기반 장면 완성!' : '✅ 그림 완성!'
-        )
-        setTimeout(() => setSaveStatus(''), 2500)
-      } catch (err) {
-        console.error('그림 생성 실패:', err)
-        setSaveStatus('⚠️ 그림 생성 실패 — 다시 시도해 주세요')
-        setTimeout(() => setSaveStatus(''), 3000)
-      } finally {
-        isGeneratingRef.current = false
-        setIsGenerating(false)
-      }
-    },
-    []
-  )
+  const getDrawingBlob = useCallback(async () => {
+    return (await drawCanvasRef.current?.getBlob?.()) ?? null
+  }, [])
 
   const handleAddPhoto = (photo) => {
     setPhotos((prev) => [...prev, photo])
-    clearCurrentImage()
-    lastGeneratedTextRef.current = ''
+    queueMicrotask(() => {
+      drawCanvasRef.current?.embedPhoto?.(photo.src, { noBg: photo.noBg })
+    })
+  }
+
+  const handlePutPhotoOnCanvas = (photo) => {
+    drawCanvasRef.current?.embedPhoto?.(photo.src, { noBg: photo.noBg })
+  }
+
+  const handleUpdatePhoto = (id, patch) => {
+    setPhotos((prev) => prev.map((p) => (p.id === id ? { ...p, ...patch } : p)))
   }
 
   const handleRemovePhoto = (id) => {
     setPhotos((prev) => prev.filter((p) => p.id !== id))
-    clearCurrentImage()
-    lastGeneratedTextRef.current = ''
   }
 
   const handleReset = async () => {
     setStoryText('')
-    clearCurrentImage()
-    lastGeneratedTextRef.current = ''
     setPhotos([])
+    setHasDrawing(false)
+    setRestoreCanvasBlob(null)
+    await drawCanvasRef.current?.clear?.()
     setSaveStatus('🔄 새 이야기 시작')
     setTimeout(() => setSaveStatus(''), 2000)
   }
 
-  const deferredStoryText = useDeferredValue(storyText)
-
-  const handleManualGenerate = useCallback(() => {
+  const handleSaveToGallery = async () => {
     const text = getStoryInputText().trim()
-    if (!text) {
-      setSaveStatus('⚠️ 이야기를 입력한 뒤 그림 그리기를 눌러 주세요')
+    const blob = await getDrawingBlob()
+
+    if (!text && !blob?.size) {
+      setSaveStatus('⚠️ 이야기를 쓰거나 그림을 그려 주세요')
       setTimeout(() => setSaveStatus(''), 2500)
       return
     }
-    if (text !== storyText) setStoryText(text)
-    triggerImageGeneration(text, photos)
-  }, [getStoryInputText, storyText, photos, triggerImageGeneration])
 
-  const handleSaveToGallery = async () => {
-    const text = getStoryInputText()
-    if (!text.trim()) return
     if (text !== storyText) setStoryText(text)
-
-    let blob = generatedImageBlob
-    if (!blob?.size && imageUrl) {
-      blob = await resolveImageBlob({ blob, url: imageUrl })
-    }
-    if (!blob?.size) {
-      const result = await generateExportableImageBlob(text, photos.map((p) => p.src))
-      blob = result?.blob
-    }
 
     await saveStoryToGallery({
       storyText: text,
@@ -203,17 +114,22 @@ function App() {
     setTimeout(() => setSaveStatus(''), 2500)
   }
 
-  const handleOpenStory = (story) => {
-    setStoryText(story.storyText)
-    setPhotos(story.photos)
-    if (imageUrlRef.current) {
-      URL.revokeObjectURL(imageUrlRef.current)
+  const handleOpenStory = async (story) => {
+    setStoryText(story.storyText ?? '')
+    setPhotos(story.photos ?? [])
+    setHasDrawing(!!story.generatedImageBlob?.size || !!story.generatedImageUrl)
+    if (story.generatedImageBlob?.size) {
+      setRestoreCanvasBlob(story.generatedImageBlob)
+    } else if (story.generatedImageUrl) {
+      try {
+        const blob = await resolveImageBlob({ blob: null, url: story.generatedImageUrl })
+        setRestoreCanvasBlob(blob)
+      } catch {
+        setRestoreCanvasBlob(null)
+      }
+    } else {
+      setRestoreCanvasBlob(null)
     }
-    const url = story.generatedImageUrl
-    imageUrlRef.current = url
-    setImageUrl(url)
-    setGeneratedImageBlob(story.generatedImageBlob ?? null)
-    lastGeneratedTextRef.current = story.storyText
     setView('create')
   }
 
@@ -223,40 +139,22 @@ function App() {
     setSavedStories(stories)
   }
 
-  const handleImageError = useCallback(() => {
-    const text = getStoryInputText().trim()
-    if (!text || imageErrorRetriedRef.current) return
-    imageErrorRetriedRef.current = true
-    setSaveStatus('⚠️ 그림 로드 실패 — 다시 그리는 중...')
-    triggerImageGeneration(text, photos)
-  }, [getStoryInputText, photos, triggerImageGeneration])
-
   const handleExportCurrent = async () => {
     try {
       const text = getStoryInputText().trim()
-      if (!text) {
-        setSaveStatus('⚠️ 내보낼 이야기가 없어요')
+      const blob = await getDrawingBlob()
+
+      if (!text && !blob?.size) {
+        setSaveStatus('⚠️ 내보낼 이야기나 그림이 없어요')
         setTimeout(() => setSaveStatus(''), 2500)
         return
       }
 
-      let blob = generatedImageBlob
-      if (!blob?.size && imageUrl) {
-        blob = await resolveImageBlob({ blob, url: imageUrl })
-        if (blob) setGeneratedImageBlob(blob)
-      }
-
-      const photoSrcs = photos.map((p) => p.src)
       const exportResult = await exportStoryBundle({
         imageBlob: blob,
         storyText: text,
-        imageUrl,
-        regenerateImage: async () => {
-          setSaveStatus('🎨 저장할 그림 파일 만드는 중...')
-          const result = await generateExportableImageBlob(text, photoSrcs)
-          if (result?.blob) setGeneratedImageBlob(result.blob)
-          return result?.blob ?? null
-        },
+        imageUrl: blob ? blobToObjectUrl(blob) : null,
+        regenerateImage: getDrawingBlob,
       })
 
       if (exportResult.cancelled) return
@@ -265,10 +163,12 @@ function App() {
       setTimeout(() => setSaveStatus(''), 4000)
     } catch (err) {
       console.error('내보내기 실패:', err)
-      setSaveStatus('⚠️ 내보내기 실패 — 🎨 그림 그리기 후 다시 시도해 주세요')
+      setSaveStatus('⚠️ 내보내기 실패 — 다시 시도해 주세요')
       setTimeout(() => setSaveStatus(''), 4000)
     }
   }
+
+  const canSave = storyText.trim() || hasDrawing
 
   if (!isLoaded) {
     return (
@@ -294,11 +194,10 @@ function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app app-create-layout">
       {showGuide && <InstallGuide onClose={() => setShowGuide(false)} />}
-      <header className="app-header">
+      <header className="app-header app-header-compact">
         <h1>✨ 이야기 그림전환 ✨</h1>
-        <p className="subtitle">🔒 이 기기에만 저장 · 외부로 데이터를 보내지 않아요</p>
         <div className="header-actions">
           <button className="btn-gallery" onClick={() => setView('gallery')}>
             📚 내 보관함 ({savedStories.length})
@@ -310,37 +209,37 @@ function App() {
         </div>
       </header>
 
-      <main className="app-main">
-        <section className="left-column">
-          <PhotoUpload
-            photos={photos}
-            onAddPhoto={handleAddPhoto}
-            onRemovePhoto={handleRemovePhoto}
-          />
-        </section>
-
-        <section className="center-column">
+      <main className="app-main app-main-create">
+        <section className="input-stack">
           <StoryPanel
             ref={storyInputRef}
             storyText={storyText}
             onTextChange={handleStoryTextChange}
           />
-          <div className="controls">
+          <PhotoUpload
+            photos={photos}
+            onAddPhoto={handleAddPhoto}
+            onRemovePhoto={handleRemovePhoto}
+            onPhotoToCanvas={handlePutPhotoOnCanvas}
+            onUpdatePhoto={handleUpdatePhoto}
+          />
+          <div className="controls controls-inline">
             <div className="action-buttons action-buttons-main">
-              <button
-                type="button"
-                className="btn-generate"
-                onClick={handleManualGenerate}
-              >
-                🎨 그림 그리기
-              </button>
               <button
                 type="button"
                 className="btn-save"
                 onClick={handleSaveToGallery}
-                disabled={!storyText.trim() && !isGenerating}
+                disabled={!canSave}
               >
                 📚 보관함에 저장
+              </button>
+              <button
+                type="button"
+                className="btn-export-inline"
+                onClick={handleExportCurrent}
+                disabled={!canSave}
+              >
+                💾 내보내기
               </button>
               <button className="btn-reset" onClick={handleReset}>
                 🔄 처음부터
@@ -349,23 +248,20 @@ function App() {
           </div>
         </section>
 
-        <section className="right-column">
-          <ImagePanel
-            imageUrl={imageUrl}
-            isGenerating={isGenerating}
-            storyText={deferredStoryText}
-            canExport={!!imageUrl && !!storyText.trim()}
-            onExport={handleExportCurrent}
-            onImageError={handleImageError}
+        <section className="draw-column">
+          <KidDrawCanvas
+            ref={drawCanvasRef}
+            photos={photos}
+            storyText={storyText}
+            restoreBlob={restoreCanvasBlob}
+            onRestored={() => setRestoreCanvasBlob(null)}
+            onDrawingChange={setHasDrawing}
           />
         </section>
       </main>
 
-      <footer className="app-footer">
-        <p>
-          🔒 이야기·사진·그림은 모두 이 태블릿 안에서만 처리됩니다 · 인터넷 없이도 그림을 그릴 수
-          있어요
-        </p>
+      <footer className="app-footer app-footer-compact">
+        <p>🖍️ 직접 그린 그림 · 🔒 이 기기에만 저장</p>
       </footer>
     </div>
   )

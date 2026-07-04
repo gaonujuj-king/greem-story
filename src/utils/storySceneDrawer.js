@@ -1,4 +1,13 @@
 import { NOUN_CATEGORIES, isFoodEntity } from './koreanNounDictionary'
+import { drawSceneFrame } from './shapeLineDrawer'
+import {
+  drawShapeRabbit,
+  drawShapeChild,
+  drawShapeTree,
+  drawShapeColoredCircle,
+  drawShapeGeneric,
+  drawShapeSun,
+} from './shapeStyleDrawers'
 
 function createSeededRandom(seed) {
   let value = 0
@@ -111,22 +120,7 @@ function drawGround(ctx, setting, weather, width, height) {
 }
 
 function drawSun(ctx, x, y, size) {
-  ctx.save()
-  ctx.fillStyle = '#ffd93d'
-  ctx.beginPath()
-  ctx.arc(x, y, size, 0, Math.PI * 2)
-  ctx.fill()
-
-  ctx.strokeStyle = '#ffb800'
-  ctx.lineWidth = 3
-  for (let i = 0; i < 8; i++) {
-    const angle = (i / 8) * Math.PI * 2
-    ctx.beginPath()
-    ctx.moveTo(x + Math.cos(angle) * (size + 8), y + Math.sin(angle) * (size + 8))
-    ctx.lineTo(x + Math.cos(angle) * (size + 22), y + Math.sin(angle) * (size + 22))
-    ctx.stroke()
-  }
-  ctx.restore()
+  drawShapeSun(ctx, x, y, size)
 }
 
 function drawMoon(ctx, x, y, size) {
@@ -192,21 +186,7 @@ function drawSnow(ctx, width, height, rand) {
 }
 
 function drawTree(ctx, x, y, size) {
-  ctx.save()
-  ctx.fillStyle = '#8B5E3C'
-  ctx.fillRect(x - size * 0.12, y, size * 0.24, size * 0.55)
-
-  ctx.fillStyle = '#3da845'
-  ctx.beginPath()
-  ctx.arc(x, y - size * 0.1, size * 0.45, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(x - size * 0.28, y + size * 0.05, size * 0.32, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(x + size * 0.28, y + size * 0.05, size * 0.32, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
+  drawShapeTree(ctx, x, y, size)
 }
 
 function drawLeaf(ctx, x, y, size) {
@@ -381,27 +361,7 @@ function drawBird(ctx, x, y, size) {
 }
 
 function drawRabbit(ctx, x, y, size) {
-  ctx.save()
-  ctx.fillStyle = '#f0f0f0'
-  ctx.beginPath()
-  ctx.ellipse(x, y, size * 0.38, size * 0.32, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.beginPath()
-  ctx.arc(x + size * 0.28, y - size * 0.18, size * 0.22, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillRect(x + size * 0.12, y - size * 0.65, size * 0.12, size * 0.4)
-  ctx.fillRect(x + size * 0.3, y - size * 0.6, size * 0.1, size * 0.35)
-  ctx.fillStyle = '#ffb8b8'
-  ctx.beginPath()
-  ctx.ellipse(x + size * 0.18, y - size * 0.55, size * 0.06, size * 0.12, 0, 0, Math.PI * 2)
-  ctx.ellipse(x + size * 0.34, y - size * 0.52, size * 0.05, size * 0.1, 0, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = '#333'
-  ctx.beginPath()
-  ctx.arc(x + size * 0.24, y - size * 0.2, size * 0.04, 0, Math.PI * 2)
-  ctx.arc(x + size * 0.34, y - size * 0.2, size * 0.04, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.restore()
+  drawShapeRabbit(ctx, x, y, size)
 }
 
 function drawButterfly(ctx, x, y, size) {
@@ -565,27 +525,7 @@ function drawFish(ctx, x, y, size) {
 }
 
 function drawChild(ctx, x, y, size) {
-  ctx.save()
-  ctx.fillStyle = '#ffd1a9'
-  ctx.beginPath()
-  ctx.arc(x, y - size * 0.55, size * 0.18, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.fillStyle = '#6bcbff'
-  ctx.fillRect(x - size * 0.2, y - size * 0.38, size * 0.4, size * 0.35)
-  ctx.fillStyle = '#4a7fc8'
-  ctx.fillRect(x - size * 0.18, y - size * 0.05, size * 0.14, size * 0.35)
-  ctx.fillRect(x + size * 0.04, y - size * 0.05, size * 0.14, size * 0.35)
-  ctx.fillStyle = '#333'
-  ctx.beginPath()
-  ctx.arc(x - size * 0.06, y - size * 0.58, size * 0.03, 0, Math.PI * 2)
-  ctx.arc(x + size * 0.06, y - size * 0.58, size * 0.03, 0, Math.PI * 2)
-  ctx.fill()
-  ctx.strokeStyle = '#333'
-  ctx.lineWidth = 2
-  ctx.beginPath()
-  ctx.arc(x, y - size * 0.5, size * 0.06, 0.1, Math.PI - 0.1)
-  ctx.stroke()
-  ctx.restore()
+  drawShapeChild(ctx, x, y, size)
 }
 
 function drawCar(ctx, x, y, size) {
@@ -1016,29 +956,11 @@ const FRUIT_COLORS = {
 }
 
 function drawColoredCircle(ctx, x, y, size, color, withStem = false) {
-  ctx.save()
-  ctx.fillStyle = color
-  ctx.beginPath()
-  ctx.arc(x, y, size * 0.32, 0, Math.PI * 2)
-  ctx.fill()
-  if (withStem) {
-    ctx.strokeStyle = '#558B2F'
-    ctx.lineWidth = 3
-    ctx.beginPath()
-    ctx.moveTo(x, y - size * 0.32)
-    ctx.lineTo(x + size * 0.08, y - size * 0.5)
-    ctx.stroke()
-  }
-  ctx.restore()
+  drawShapeColoredCircle(ctx, x, y, size, color, withStem)
 }
 
 function drawGenericObject(ctx, x, y, size, color = '#90caf9') {
-  ctx.save()
-  ctx.fillStyle = color
-  ctx.beginPath()
-  ctx.roundRect(x - size * 0.28, y - size * 0.22, size * 0.56, size * 0.44, 8)
-  ctx.fill()
-  ctx.restore()
+  drawShapeGeneric(ctx, x, y, size, color)
 }
 
 function drawToothpaste(ctx, x, y, size) {
@@ -1846,9 +1768,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
   ) {
     if (drawAnimalEatingFoodScene(ctx, scene, width, height)) {
       if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-      ctx.strokeStyle = '#ff6b9d'
-      ctx.lineWidth = 6
-      ctx.strokeRect(12, 12, width - 24, height - 24)
+      drawSceneFrame(ctx, width, height)
       return
     }
   }
@@ -1856,9 +1776,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
   if (scene.scenarioId === 'animals_on_playground' || scene.characters?.some((c) => c.role === 'playground')) {
     drawAnimalsOnPlaygroundScene(ctx, scene, width, height)
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -1870,9 +1788,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
   ) {
     drawBathroomHygieneScene(ctx, scene, width, height)
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -1882,18 +1798,14 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
   if (hasSlide) {
     drawAnimalsOnPlaygroundScene(ctx, scene, width, height)
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
   if (scene.scenarioId === 'shark_eating_fish') {
     drawSharkEatingFishScene(ctx, scene, width, height)
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -1903,9 +1815,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
   ) {
     drawCharactersFightingScene(ctx, scene, width, height)
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -1920,9 +1830,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
     drawSun(ctx, width * 0.82, height * 0.12, 40)
     drawAntsInLine(ctx, antCount, width, height, width * 0.08, height * 0.58, width * 0.055)
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -1939,9 +1847,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
       drawAnt(ctx, x, y, 50, i % 2 === 0 ? 1 : -1)
     }
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -1955,9 +1861,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
       drawAnt(ctx, x, y, 48, 1)
     }
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -1967,9 +1871,7 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
   ) {
     drawAntsLinePicnicScene(ctx, { ...scene, count: antCount }, width, height)
     if (photoSrcs.length > 0) await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
-    ctx.strokeStyle = '#ff6b9d'
-    ctx.lineWidth = 6
-    ctx.strokeRect(12, 12, width - 24, height - 24)
+    drawSceneFrame(ctx, width, height)
     return
   }
 
@@ -2105,7 +2007,5 @@ export async function drawStoryScene(ctx, scene, photoSrcs, width, height) {
     await drawPhotosInScene(ctx, photoSrcs, scene, width, height)
   }
 
-  ctx.strokeStyle = '#ff6b9d'
-  ctx.lineWidth = 6
-  ctx.strokeRect(12, 12, width - 24, height - 24)
+  drawSceneFrame(ctx, width, height)
 }
